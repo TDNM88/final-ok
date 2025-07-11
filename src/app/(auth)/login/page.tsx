@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [showSuccessLink, setShowSuccessLink] = useState(false)
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -82,8 +83,12 @@ export default function LoginPage() {
           }
         } else {
           console.error('Login was successful but user is not authenticated')
+          // Sử dụng React Fragment để hiển thị thông báo với Link có thể nhấp vào được
           setError(
-            "Đăng nhập thành công! Nếu không chuyển hướng, vui lòng nhấn <Link href=\"https://final-ok.vercel.app\"><a>đây</a></Link>")
+            "Đăng nhập thành công! Nếu không chuyển hướng, vui lòng nhấn "
+          )
+          // Đặt showSuccessLink để hiển thị link
+          setShowSuccessLink(true)
         }
       } else {
         console.error('Login failed:', result?.message || 'No error message')
@@ -106,8 +111,17 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
+            <Alert variant={showSuccessLink ? "default" : "destructive"} className="mb-4">
+              <AlertDescription>
+                {error}
+                {showSuccessLink && (
+                  <>
+                    <Link href="https://final-ok.vercel.app" className="font-medium text-blue-600 hover:text-blue-500">
+                      đây
+                    </Link>
+                  </>
+                )}
+              </AlertDescription>
             </Alert>
           )}
 

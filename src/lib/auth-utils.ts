@@ -6,6 +6,9 @@ import { verifyToken } from './auth';
 import { getMongoDb } from './db';
 import { ObjectId } from 'mongodb';
 
+// Re-export verifyToken để các module khác có thể import từ auth-utils
+export { verifyToken };
+
 /**
  * Middleware để bảo vệ các route admin
  */
