@@ -116,7 +116,12 @@ export default function LoginPage() {
                 {error}
                 {showSuccessLink && (
                   <>
-                    <Link href="https://final-ok.vercel.app" className="font-medium text-blue-600 hover:text-blue-500">
+                    <Link 
+                      href={`https://final-ok.vercel.app?auth=true&redirect=false`} 
+                      className="font-medium text-blue-600 hover:text-blue-500"
+                      target="_blank" // Mở trong tab mới để tránh vấn đề với trạng thái đăng nhập
+                      rel="noopener noreferrer" // Bảo mật khi mở tab mới
+                    >
                       đây
                     </Link>
                   </>
