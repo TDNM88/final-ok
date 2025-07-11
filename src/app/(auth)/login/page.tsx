@@ -117,7 +117,7 @@ export default function LoginPage() {
                 {showSuccessLink && (
                   <>
                     <Link 
-                      href={`https://final-ok.vercel.app?auth=true&redirect=false`} 
+                      href={`https://final-ok.vercel.app/?auth=true&redirect=false&timestamp=${Date.now()}`} 
                       className="font-medium text-blue-600 hover:text-blue-500"
                       target="_blank" // Mở trong tab mới để tránh vấn đề với trạng thái đăng nhập
                       rel="noopener noreferrer" // Bảo mật khi mở tab mới
