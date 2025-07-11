@@ -83,7 +83,7 @@ export default function LoginPage() {
         } else {
           console.error('Login was successful but user is not authenticated')
           setError(
-            "Đăng nhập thành công! Nếu không chuyển hướng, vui lòng nhấn <Link href=\"https://www.london-hsc.com\"><a>đây</a></Link>")
+            "Đăng nhập thành công! Nếu không chuyển hướng, vui lòng nhấn <Link href=\"https://final-ok.vercel.app\"><a>đây</a></Link>")
         }
       } else {
         console.error('Login failed:', result?.message || 'No error message')
