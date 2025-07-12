@@ -1,17 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, ChangeEvent, FormEvent, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import Link from 'next/link';
-import { Menu, X, Loader2, Upload, CheckCircle, XCircle, UploadCloud, ArrowUpCircle, ArrowDownCircle, Copy, FileImage, AlertTriangle, Pencil, Check, Lock } from 'lucide-react';
+import { Menu, CheckCircle, XCircle, Loader2, Check, X, Pencil } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 import { PersonalInfoSection } from './components/personal-info-section';
 import { BankInfoSection } from './components/bank-info-section';
-import useSWR from 'swr';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 // Remove unused import
 
