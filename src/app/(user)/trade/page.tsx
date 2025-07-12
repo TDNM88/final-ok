@@ -33,7 +33,6 @@ interface TradeResult {
 }
 
 const QUICK_AMOUNTS = [100000, 1000000, 5000000, 10000000, 30000000, 50000000, 100000000, 200000000];
-const SESSION_DURATION = 60; // 60 seconds per session
 const RESULT_DELAY = 5; // 5 seconds delay for result
 
 const formatCurrency = (value: number): string => {
@@ -56,13 +55,12 @@ export default function TradePage() {
   const [balance, setBalance] = useState<number>(1000000); // Initial balance for demo
   const [tradeHistory, setTradeHistory] = useState<TradeHistoryRecord[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
-    // Khởi tạo sessionId khi component mount
     if (typeof window !== 'undefined') {
       return generateSessionId();
     }
     return '';
   });
-  const [timeLeft, setTimeLeft] = useState<number>(SESSION_DURATION);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
   const [amount, setAmount] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -77,55 +75,33 @@ export default function TradePage() {
       return;
     }
 
-    const startNewSession = () => {
-      setCurrentSessionId(generateSessionId());
-      setTimeLeft(SESSION_DURATION);
+    const syncTimer = () => {
+      const now = new Date();
+      const seconds = now.getSeconds();
+      
+      // Tính thời gian còn lại (59 - seconds)
+      const timeLeftInSeconds = 59 - seconds;
+      setTimeLeft(timeLeftInSeconds >= 0 ? timeLeftInSeconds : 0);
+
+      // Tạo sessionId mới tại xx:01
+      const newSessionId = generateSessionId(now);
+      if (seconds === 1 || currentSessionId === '') {
+        setCurrentSessionId(newSessionId);
+        setTradeResult({ status: 'idle' });
+        setTradeHistory(prev =>
+          prev.map(trade =>
+            trade.sessionId === newSessionId ? trade : { ...trade, status: 'completed' }
+          )
+        );
+      }
     };
 
-    startNewSession();
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          startNewSession();
-          return SESSION_DURATION;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
+    syncTimer();
+    const timer = setInterval(syncTimer, 1000);
     setIsLoading(false);
 
     return () => clearInterval(timer);
-  }, [authLoading, user, router, toast]);
-
-  // Update session ID when minute changes
-  useEffect(() => {
-    const updateSessionId = () => {
-      const now = new Date();
-      const newSessionId = generateSessionId(now);
-      
-      // Chỉ cập nhật nếu sessionId thay đổi (mỗi phút)
-      if (newSessionId !== currentSessionId) {
-        setCurrentSessionId(newSessionId);
-        
-        // Reset các trạng thái liên quan khi session mới bắt đầu
-        setTradeResult({ status: 'idle' });
-        setTradeHistory(prev => prev.map(trade => 
-          trade.sessionId === newSessionId ? trade : 
-          { ...trade, status: 'completed' as const }
-        ));
-      }
-    };
-    
-    // Update immediately
-    updateSessionId();
-    
-    // Then check every second
-    const interval = setInterval(updateSessionId, 1000);
-    
-    return () => clearInterval(interval);
-  }, [currentSessionId]);
+  }, [authLoading, user, router, toast, currentSessionId]);
 
   // Track which trades have been processed to prevent duplicate updates
   const processedTradesRef = useRef<Set<string>>(new Set());
@@ -493,7 +469,7 @@ export default function TradePage() {
                 <div className="mb-4">
                   <div className="border border-red-600 rounded bg-gray-100 text-center py-3">
                     <div className="text-sm text-gray-900">Hãy đặt lệnh:</div>
-                    <div className="text-xl font-bold text-red-600">{String(timeLeft).padStart(2, '0')}s</div>
+                    <div className="text-xl font-bold text-red-600">{`00:${String(timeLeft).padStart(2, '0')}`}</div>
                   </div>
                 </div>
                 <div className="space-y-3">
