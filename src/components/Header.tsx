@@ -240,8 +240,8 @@ export default function Header() {
               <Link href="/account" className="py-4 px-5 border-b border-gray-200 text-base">
                 Tổng quan tài khoản
               </Link>
-              <Link href="/security" className="py-4 px-5 border-b border-gray-200 text-base">
-                Cài đặt bảo mật
+              <Link href="/account?tab=verify" className="py-4 px-5 border-b border-gray-200 text-base">
+                Đổi mật khẩu
               </Link>
               <Link href="/account?tab=verify" className="py-4 px-5 border-b border-gray-200 text-base">
                 Xác minh danh tính

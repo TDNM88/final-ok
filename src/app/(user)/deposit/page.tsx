@@ -23,14 +23,33 @@ export default function DepositPage() {
   const [selectedBank, setSelectedBank] = useState('');
   const [isConfirmed, setIsConfirmed] = useState(false);
 
-  // Get settings with proper authentication
+  // Lấy token từ localStorage
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('authToken') : null;
+
+  // Lấy cài đặt chung của hệ thống
   const { data: settings, error: settingsError } = useSWR(
     user ? '/api/admin/settings' : null,
     async (url: string) => {
       const res = await fetch(url, { 
-        credentials: 'include' // This will include the session cookie
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
       if (!res.ok) throw new Error('Failed to fetch settings');
+      return res.json();
+    }
+  );
+  
+  // Lấy thông tin ngân hàng của nền tảng
+  const { data: platformBanks, error: platformBanksError } = useSWR(
+    user ? '/api/platform/banks' : null,
+    async (url: string) => {
+      const res = await fetch(url, { 
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (!res.ok) throw new Error('Failed to fetch platform banks');
       return res.json();
     }
   );
@@ -148,7 +167,41 @@ export default function DepositPage() {
 
   return (
     <div id="deposit-page" className="min-h-screen bg-gray-900 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Thông tin ngân hàng nền tảng */}
+        <Card className="bg-gray-800 border-gray-700 shadow-lg rounded-xl">
+          <CardHeader className="border-b border-gray-700 p-6">
+            <CardTitle className="text-2xl font-semibold text-white">Thông tin ngân hàng nền tảng</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-4">
+            {!platformBanks ? (
+              <div className="text-center py-4 text-gray-400">Đang tải thông tin ngân hàng...</div>
+            ) : platformBanksError ? (
+              <div className="text-red-500">Không thể tải thông tin ngân hàng</div>
+            ) : platformBanks.banks && platformBanks.banks.length > 0 ? (
+              <div className="space-y-4">
+                <p className="text-yellow-400 font-medium">Vui lòng chuyển khoản vào một trong các tài khoản sau:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {platformBanks.banks.map((bank: any, index: number) => (
+                    <div key={index} className="bg-gray-700 p-4 rounded-lg">
+                      <h3 className="text-lg font-bold text-white">{bank.bankName}</h3>
+                      <div className="mt-2 space-y-1">
+                        <p><span className="text-gray-400">Chủ tài khoản:</span> <span className="text-white font-medium">{bank.accountHolder}</span></p>
+                        <p><span className="text-gray-400">Số tài khoản:</span> <span className="text-white font-medium">{bank.accountNumber}</span></p>
+                        {bank.branch && <p><span className="text-gray-400">Chi nhánh:</span> <span className="text-white">{bank.branch}</span></p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-amber-500">Lưu ý: Nội dung chuyển khoản vui lòng ghi rõ <span className="font-mono bg-gray-700 px-2 py-0.5 rounded">NAP-{user?.username || 'user'}-{new Date().getTime().toString().slice(-6)}</span> để chúng tôi có thể xác nhận nhanh chóng.</p>
+              </div>
+            ) : (
+              <p className="text-gray-400">Hiện tại chưa có thông tin ngân hàng nền tảng.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Form nạp tiền */}
         <Card className="bg-gray-800 border-gray-700 shadow-lg rounded-xl">
           <CardHeader className="border-b border-gray-700 p-6">
             <CardTitle className="text-2xl font-semibold text-white">Nạp tiền</CardTitle>
@@ -165,10 +218,10 @@ export default function DepositPage() {
                     className="flex h-10 w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                     required
                   >
-                    <option value="">-- Chọn ngân hàng --</option>
-                    {settings?.bankDetails?.map((bank: any, index: number) => (
+                    <option value="" disabled>-- Chọn ngân hàng --</option>
+                    {platformBanks?.banks?.map((bank: any, index: number) => (
                       <option key={index} value={bank.bankName}>
-                        {bank.bankName} - {bank.accountNumber} ({bank.accountHolder})
+                        {bank.bankName}
                       </option>
                     ))}
                   </select>
@@ -181,35 +234,42 @@ export default function DepositPage() {
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="Nhập số tiền"
                     className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                    min={settings?.depositLimits?.min || 0}
-                    max={settings?.depositLimits?.max || 100000000}
+                    min={settings?.minDeposit || 0}
+                    max={settings?.maxDeposit || 100000000}
                     required
                   />
                 </div>
               </div>
-              {selectedBank && (
+              
+              {selectedBank && platformBanks?.banks && (
                 <div className="bg-gray-700 p-4 rounded-md mb-4">
                   <h4 className="font-medium text-gray-300 mb-2">Thông tin chuyển khoản:</h4>
-                  {settings?.bankDetails?.find((b: any) => b.bankName === selectedBank) && (
+                  {platformBanks.banks.find((b: any) => b.bankName === selectedBank) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                       <div>
                         <p className="text-gray-400">Ngân hàng:</p>
-                        <p className="text-white">{
-                          settings.bankDetails.find((b: any) => b.bankName === selectedBank)?.bankName
-                        }</p>
+                        <p className="text-white">{selectedBank}</p>
                       </div>
                       <div>
                         <p className="text-gray-400">Số tài khoản:</p>
                         <p className="text-white">{
-                          settings.bankDetails.find((b: any) => b.bankName === selectedBank)?.accountNumber
+                          platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.accountNumber
                         }</p>
                       </div>
                       <div>
                         <p className="text-gray-400">Chủ tài khoản:</p>
                         <p className="text-white">{
-                          settings.bankDetails.find((b: any) => b.bankName === selectedBank)?.accountHolder
+                          platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.accountHolder
                         }</p>
                       </div>
+                      {platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.branch && (
+                        <div>
+                          <p className="text-gray-400">Chi nhánh:</p>
+                          <p className="text-white">{
+                            platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.branch
+                          }</p>
+                        </div>
+                      )}
                       <div>
                         <p className="text-gray-400">Nội dung chuyển khoản:</p>
                         <p className="text-white font-mono">NAP-{user?.username || 'user'}-{new Date().getTime().toString().slice(-6)}</p>
@@ -217,7 +277,7 @@ export default function DepositPage() {
                     </div>
                   )}
                 </div>
-              )}
+              )
             </div>
 
             <div>

@@ -11,7 +11,9 @@ import { useToast } from '@/components/ui/use-toast';
 import useSWR from 'swr';
 
 export default function WithdrawPage() {
-  const { user, token, loading, logout } = useAuth();
+  const { user, isLoading, logout, isAuthenticated } = useAuth();
+  // Lấy token từ localStorage thay vì từ useAuth
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('authToken') : null;
   const router = useRouter();
   const { toast } = useToast();
   const [amount, setAmount] = useState('');
@@ -25,7 +27,7 @@ export default function WithdrawPage() {
   );
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!isLoading && !user) {
       toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng đăng nhập' });
       router.push('/login');
     }
@@ -34,7 +36,7 @@ export default function WithdrawPage() {
       setAccountNumber(user.bank?.accountNumber || '');
       setAccountHolder(user.bank?.accountHolder || '');
     }
-  }, [user, loading, router, toast]);
+  }, [user, isLoading, router, toast]);
 
   const handleSubmit = async () => {
     if (!amount || !bankName || !accountNumber || !accountHolder) {
@@ -72,7 +74,7 @@ export default function WithdrawPage() {
     }
   };
 
-  if (loading || !user) {
+  if (isLoading || !user) {
     return <div className="flex justify-center items-center h-screen text-white">Loading...</div>;
   }
 
