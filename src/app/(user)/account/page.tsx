@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, ChangeEvent, FormEvent } from 'react';
+import React, { useState, useEffect, useRef, useCallback, ChangeEvent, FormEvent, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
 import { Menu, X, Loader2, Upload, CheckCircle, XCircle, UploadCloud, ArrowUpCircle, ArrowDownCircle, Copy, FileImage, AlertTriangle, Pencil, Check, Lock } from 'lucide-react';
+import { PersonalInfoSection } from './components/personal-info-section';
+import { BankInfoSection } from './components/bank-info-section';
 import useSWR from 'swr';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -1288,150 +1290,6 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 
                 <div className="bg-gray-800/50 p-6 rounded-lg">
                   <h3 className="text-lg font-medium mb-4">Thông tin cá nhân</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-gray-400">Họ và tên</p>
-                      {isEditingUserInfo && editField === 'fullName' ? (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="text"
-                            name="fullName"
-                            value={userInfoForm.fullName}
-                            onChange={handleUserInfoChange}
-                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm w-full"
-                            placeholder="Nhập họ và tên"
-                          />
-                          <button 
-                            onClick={handleSaveUserInfo}
-                            disabled={isSaving}
-                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
-                          >
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                          </button>
-                          <button 
-                            onClick={handleCancelEditUserInfo}
-                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center">
-                          <p>{user?.fullName || 'Chưa cập nhật'}</p>
-                          {!user?.fullName && (
-                            <button 
-                              onClick={() => handleEditUserInfo('fullName')}
-                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Email</p>
-                      {isEditingUserInfo && editField === 'email' ? (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="email"
-                            name="email"
-                            value={userInfoForm.email}
-                            onChange={handleUserInfoChange}
-                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm w-full"
-                            placeholder="Nhập email"
-                          />
-                          <button 
-                            onClick={handleSaveUserInfo}
-                            disabled={isSaving}
-                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
-                          >
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                          </button>
-                          <button 
-                            onClick={handleCancelEditUserInfo}
-                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center">
-                          <p>{user?.email || 'Chưa cập nhật'}</p>
-                          {!user?.email && (
-                            <button 
-                              onClick={() => handleEditUserInfo('email')}
-                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Số điện thoại</p>
-                      {isEditingUserInfo && editField === 'phone' ? (
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="tel"
-                            name="phone"
-                            value={userInfoForm.phone}
-                            onChange={handleUserInfoChange}
-                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm w-full"
-                            placeholder="Nhập số điện thoại"
-                          />
-                          <button 
-                            onClick={handleSaveUserInfo}
-                            disabled={isSaving}
-                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
-                          >
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                          </button>
-                          <button 
-                            onClick={handleCancelEditUserInfo}
-                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center">
-                          <p>{user?.phone || 'Chưa cập nhật'}</p>
-                          {!user?.phone && (
-                            <button 
-                              onClick={() => handleEditUserInfo('phone')}
-                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Địa chỉ</p>
-                      <div className="flex items-center">
-                        <p>{user?.address || 'Chưa cập nhật'}</p>
-                        {!user?.address && (
-                          <span className="ml-2 text-gray-400">
-                            <Pencil className="h-4 w-4" />
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-800/50 p-6 rounded-lg">
-                  <h3 className="text-lg font-medium mb-4">Trạng thái tài khoản</h3>
-                  <div className="space-y-3">
-                    <p>
-                      <span className="text-gray-400">Xác minh danh tính:</span>{' '}
-                      {isVerified ? (
-                        <span className="text-green-400 flex items-center">
-                          <CheckCircle className="w-4 h-4 mr-1" /> Đã xác minh
-                        </span>
                       ) : (
                         <span className="text-yellow-400">Chưa xác minh</span>
                       )}
@@ -1447,9 +1305,12 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
                   <h1 className="text-2xl font-bold">Thông tin ngân hàng</h1>
-                  {/* Nút chỉnh sửa đã bị ẩn theo yêu cầu */}
                 </div>
-
+                
+                <Suspense fallback={<div className="p-4 text-center">Đang tải thông tin ngân hàng...</div>}>
+                  <BankInfoSection />
+                </Suspense>
+                
                 {false ? ( // Vô hiệu hóa hoàn toàn form chỉnh sửa
                   <form onSubmit={handleSubmitBankInfoForm} className="space-y-4 max-w-2xl">
                     <div>
