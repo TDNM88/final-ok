@@ -6,12 +6,12 @@ import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
-import { Menu, X, Loader2, Upload, CheckCircle, XCircle, UploadCloud, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Menu, X, Loader2, Upload, CheckCircle, XCircle, UploadCloud, ArrowUpCircle, ArrowDownCircle, Copy, FileImage, AlertTriangle, Pencil, Check } from 'lucide-react';
 import useSWR from 'swr';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { A } from 'framer-motion/dist/types.d-D0HXPxHm';
+// Remove unused import
 
 type TabType = 'overview' | 'bank' | 'verify' | 'password' | 'deposit' | 'withdraw';
 
@@ -134,6 +134,11 @@ export default function AccountPage() {
     bankCode: user?.bankInfo?.bankCode || '',
     verified: user?.bankInfo?.verified || false
   });
+  
+  // State cho việc chỉnh sửa thông tin ngân hàng
+  const [isEditingBankInfo, setIsEditingBankInfo] = useState(false);
+  const [editBankField, setEditBankField] = useState<string | null>(null);
+  const [isSavingBank, setIsSavingBank] = useState(false);
 
   const [passwordForm, setPasswordForm] = useState<PasswordForm>({
     currentPassword: '',
@@ -153,17 +158,25 @@ export default function AccountPage() {
   const [withdrawNote, setWithdrawNote] = useState('');
   
   // Vô hiệu hóa chức năng chỉnh sửa thông tin ngân hàng
-  const [isEditingBankInfo, setIsEditingBankInfo] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  
+  // State cho chỉnh sửa thông tin cá nhân
+  const [isEditingUserInfo, setIsEditingUserInfo] = useState(false);
+  const [editField, setEditField] = useState<string | null>(null);
+  const [userInfoForm, setUserInfoForm] = useState({
+    fullName: user?.fullName || '',
+    email: user?.email || '',
+    phone: user?.phone || ''
+  });
 
   useEffect(() => {
     if (user?.verification) {
       setVerificationStatus({
-        verified: user.verification.verified || false,
-        cccdFront: user.verification.cccdFront || '',
-        cccdBack: user.verification.cccdBack || '',
-        submittedAt: user.verification.submittedAt || ''
+        verified: user?.verification.verified || false,
+        cccdFront: user?.verification.cccdFront || '',
+        cccdBack: user?.verification.cccdBack || '',
+        submittedAt: user?.verification.submittedAt || ''
       });
     }
   }, [user]);
@@ -194,7 +207,7 @@ export default function AccountPage() {
         if (res.ok) {
           const data = await res.json();
           if (data?.success && data.user) {
-            console.log('User authenticated:', data.user.username);
+            console.log('User authenticated:', data.user?.username);
             // Cập nhật user state nếu cần
           } else {
             console.log('No user in auth response:', data);
@@ -215,9 +228,21 @@ export default function AccountPage() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Update verification status when user data changes
+  useEffect(() => {
+    if (user?.verification) {
+      setVerificationStatus({
+        verified: user?.verification.verified || false,
+        cccdFront: user?.verification.cccdFront || '',
+        cccdBack: user?.verification.cccdBack || '',
+        submittedAt: user?.verification.submittedAt || ''
+      });
+    }
+  }, [user]);
   
   // Lấy thông tin ngân hàng nền tảng
-  const { data: platformBanks } = useSWR(
+  const { data: rawPlatformBanks, isLoading: platformBanksLoading, error: platformBanksError } = useSWR(
     user ? '/api/platform/banks' : null,
     async (url: string) => {
       const res = await fetch(url, { 
@@ -231,31 +256,47 @@ export default function AccountPage() {
     { revalidateOnFocus: false }
   );
   
+  // Ensure platformBanks is always an array
+  const platformBanks = Array.isArray(rawPlatformBanks) ? rawPlatformBanks : 
+    (rawPlatformBanks?.banks || rawPlatformBanks?.data || []);
+  
   // Lấy lịch sử nạp tiền
-  const { data: depositHistory } = useSWR(
-    user ? '/api/user/deposits' : null,
+  const { data: deposits, isLoading: depositsLoading, error: depositsError, mutate: mutateDeposits } = useSWR(
+    user ? '/api/user/deposit/history' : null,
     async (url: string) => {
+      const token = getToken();
+      if (!token) throw new Error('Không tìm thấy token xác thực');
+      
       const res = await fetch(url, { 
-        headers: {
-          Authorization: `Bearer ${getToken()}`
-        }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        },
+        credentials: 'include'
       });
-      if (!res.ok) throw new Error('Failed to fetch deposit history');
+      
+      if (!res.ok) throw new Error('Không thể lấy lịch sử nạp tiền');
       return res.json();
     },
     { revalidateOnFocus: false }
   );
   
   // Lấy lịch sử rút tiền
-  const { data: withdrawHistory } = useSWR(
-    user ? '/api/user/withdraws' : null,
+  const { data: withdraws, isLoading: withdrawsLoading, error: withdrawsError, mutate: mutateWithdraws } = useSWR(
+    user ? '/api/user/withdraw/history' : null,
     async (url: string) => {
+      const token = getToken();
+      if (!token) throw new Error('Không tìm thấy token xác thực');
+      
       const res = await fetch(url, { 
-        headers: {
-          Authorization: `Bearer ${getToken()}`
-        }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        },
+        credentials: 'include'
       });
-      if (!res.ok) throw new Error('Failed to fetch withdraw history');
+      
+      if (!res.ok) throw new Error('Không thể lấy lịch sử rút tiền');
       return res.json();
     },
     { revalidateOnFocus: false }
@@ -295,9 +336,50 @@ export default function AccountPage() {
   };
 
   const formatDate = (dateString?: string): string => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'N/A';
+      }
+      return date.toLocaleDateString('vi-VN');
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'N/A';
+    }
+  };
+
+  // Helper function to validate if a URL is a valid image URL uploaded by the user
+  const isValidUserUploadedImage = (url: string): boolean => {
+    if (!url) return false;
+    
+    // Check if URL is from the application's upload directory
+    if (url.startsWith('/uploads/') || url.startsWith('/api/uploads/')) return true;
+    
+    // Check if URL is from a trusted domain (adjust these as needed)
+    const trustedDomains = [
+      'api.example.com',
+      'storage.googleapis.com',
+      'cdn.yourdomain.com'
+    ];
+    
+    try {
+      const urlObj = new URL(url);
+      if (trustedDomains.some(domain => urlObj.hostname.includes(domain))) {
+        return true;
+      }
+    } catch (e) {
+      // Not a valid URL
+    }
+    
+    // Check if it's a data URL for an image
+    if (url.startsWith('data:image/') && url.includes('base64')) {
+      return true;
+    }
+    
+    return false;
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'front' | 'back') => {
@@ -332,6 +414,17 @@ export default function AccountPage() {
   };
 
   const handleUpload = async (type: 'front' | 'back') => {
+    // Check if image has already been uploaded
+    if ((type === 'front' && verificationStatus.cccdFront) || 
+        (type === 'back' && verificationStatus.cccdBack)) {
+      toast({
+        title: 'Không thể tải lên',
+        description: `Ảnh ${type === 'front' ? 'mặt trước' : 'mặt sau'} đã được tải lên trước đó và không thể thay đổi`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     const file = type === 'front' ? frontIdFile : backIdFile;
     if (!file) {
       toast({
@@ -375,7 +468,7 @@ export default function AccountPage() {
       headers.append('Pragma', 'no-cache');
       headers.append('Expires', '0');
 
-      const response = await fetch('/api/upload-verification', {
+      const response = await fetch('/api/user/upload-verification', {
         method: 'POST',
         headers: headers,
         body: formData,
@@ -401,7 +494,7 @@ export default function AccountPage() {
       
       toast({
         title: 'Thành công',
-        description: `Đã tải lên ảnh ${type === 'front' ? 'mặt trước' : 'mặt sau'} thành công`,
+        description: `Đã tải lên ảnh ${type === 'front' ? 'mặt trước' : 'mặt sau'} thành công. Ảnh đã được gửi và không thể thay đổi.`,
         variant: 'default',
       });
       
@@ -432,21 +525,11 @@ export default function AccountPage() {
     } finally {
       setIsUploading(false);
     }
-  };
+};
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setPasswordForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
+// handleSubmitBankInfo đã được di chuyển xuống phía dưới
 
-    if (passwordError) {
-      setPasswordError('');
-    }
-  };
-
-  const handleBankInfoChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+const handleBankFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setBankForm(prev => ({
       ...prev,
@@ -454,9 +537,179 @@ export default function AccountPage() {
     }));
   };
 
-  const handleBankFormChange = handleBankInfoChange;
+const handleEditBankInfo = (field: string) => {
+    setEditBankField(field);
+    setIsEditingBankInfo(true);
+  };
 
-  const handleSubmitBankInfo = async (e: React.FormEvent) => {
+const handleSaveBankInfo = async () => {
+    if (!editBankField) return;
+    
+    setIsSavingBank(true);
+    
+    try {
+      const token = getToken();
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+      
+      const response = await fetch('/api/user/update-bank-info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          [editBankField]: bankForm[editBankField as keyof typeof bankForm]
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        toast({
+          title: 'Thành công',
+          description: 'Cập nhật thông tin ngân hàng thành công',
+        });
+        
+        // Cập nhật lại thông tin người dùng
+        await refreshUser();
+        
+        // Reset trạng thái chỉnh sửa
+        setIsEditingBankInfo(false);
+        setEditBankField(null);
+      } else {
+        throw new Error(data.error || 'Có lỗi xảy ra khi cập nhật thông tin ngân hàng');
+      }
+    } catch (error) {
+      console.error('Lỗi khi cập nhật thông tin ngân hàng:', error);
+      toast({
+        title: 'Lỗi',
+        description: error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật thông tin ngân hàng',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingBank(false);
+    }
+  };
+
+const handleCancelEditBankInfo = () => {
+    // Reset lại form về giá trị ban đầu
+    setBankForm({
+      accountHolder: user?.bankInfo?.accountHolder || user?.bank?.accountHolder || '',
+      name: user?.bankInfo?.name || user?.bank?.name || '',
+      bankName: user?.bankInfo?.bankName || user?.bank?.bankName || '',
+      accountNumber: user?.bankInfo?.accountNumber || user?.bank?.accountNumber || '',
+      accountType: user?.bankInfo?.accountType || 'savings',
+      bankType: user?.bankInfo?.bankType || '',
+      bankCode: user?.bankInfo?.bankCode || '',
+      verified: user?.bankInfo?.verified || false
+    });
+    
+    // Reset trạng thái chỉnh sửa
+    setIsEditingBankInfo(false);
+    setEditBankField(null);
+  };
+
+const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleEditUserInfo = (field: string) => {
+    // Chỉ cho phép chỉnh sửa khi trường đó chưa có giá trị
+    if ((user && !user[field as keyof typeof user]) || !user) {
+      setEditField(field);
+      setIsEditingUserInfo(true);
+      
+      // Cập nhật form với giá trị hiện tại của user
+      setUserInfoForm(prev => ({
+        ...prev,
+        [field]: user?.[field as keyof typeof user] || ''
+      }));
+    }
+  };
+  
+  // Hàm xử lý khi người dùng thay đổi giá trị trong form chỉnh sửa thông tin cá nhân
+  const handleUserInfoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setUserInfoForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Hàm xử lý khi người dùng lưu thông tin cá nhân
+  const handleSaveUserInfo = async () => {
+    if (!editField) return;
+    
+    setIsSaving(true);
+    
+    try {
+      const token = getToken();
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+      
+      const response = await fetch('/api/user/update-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          [editField]: userInfoForm[editField as keyof typeof userInfoForm]
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Có lỗi xảy ra khi cập nhật thông tin cá nhân');
+      }
+      
+      const data = await response.json();
+      
+      // Cập nhật thông tin người dùng trong context
+      await refreshUser();
+      
+      toast({
+        title: 'Thành công',
+        description: 'Cập nhật thông tin cá nhân thành công',
+        variant: 'default',
+      });
+      
+      // Đóng form chỉnh sửa
+      setIsEditingUserInfo(false);
+      setEditField(null);
+    } catch (error) {
+      console.error('Update user info error:', error);
+      toast({
+        title: 'Lỗi',
+        description: error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật thông tin cá nhân',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  // Hàm hủy chỉnh sửa thông tin cá nhân
+  const handleCancelEditUserInfo = () => {
+    setIsEditingUserInfo(false);
+    setEditField(null);
+    
+    // Khôi phục giá trị ban đầu
+    setUserInfoForm({
+      fullName: user?.fullName || '',
+      email: user?.email || '',
+      phone: user?.phone || ''
+    });
+  };
+
+  const handleSubmitBankInfoForm = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
@@ -505,6 +758,11 @@ export default function AccountPage() {
       return;
     }
 
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('Mật khẩu mới và xác nhận mật khẩu không khớp');
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -517,12 +775,15 @@ export default function AccountPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
         },
         body: JSON.stringify({
-          currentPassword: passwordForm.currentPassword,
-          newPassword: passwordForm.newPassword
-        })
+          oldPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+          confirmPassword: passwordForm.confirmPassword
+        }),
+        credentials: 'include'
       });
 
       const data = await response.json();
@@ -531,7 +792,7 @@ export default function AccountPage() {
         toast({
           title: 'Thành công',
           description: 'Mật khẩu đã được cập nhật',
-          variant: toastVariant.success
+          variant: 'default'
         });
         setPasswordForm({
           currentPassword: '',
@@ -541,47 +802,56 @@ export default function AccountPage() {
       } else {
         setPasswordError(data.message || 'Có lỗi xảy ra khi đổi mật khẩu');
       }
+
+      setIsSaving(false);
     } catch (error) {
-      console.error('Error changing password:', error);
-      setPasswordError('Có lỗi xảy ra khi đổi mật khẩu');
-    } finally {
+      console.error('Change password error:', error);
+      toast({
+        title: 'Lỗi',
+        description: error instanceof Error ? error.message : 'Có lỗi xảy ra khi đổi mật khẩu',
+        variant: 'destructive',
+      });
       setIsSaving(false);
     }
   };
-  
-  // Xử lý thay đổi file bill nạp tiền
+
   const handleDepositBillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
       toast({
         title: 'Lỗi',
         description: 'Chỉ chấp nhận file ảnh định dạng JPG hoặc PNG',
-        variant: toastVariant.error
+        variant: 'destructive',
       });
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB
+    if (file.size > 5 * 1024 * 1024) {
       toast({
         title: 'Lỗi',
-        description: 'Kích thước file không được vượt quá 5MB',
-        variant: toastVariant.error
+        description: 'Kích thước file tối đa là 5MB',
+        variant: 'destructive',
       });
       return;
     }
 
     setDepositBill(file);
+    setDepositBillUrl(null);
   };
 
-  // Xử lý upload bill nạp tiền
   const handleUploadDepositBill = async () => {
-    if (!depositBill) return;
+    if (!depositBill) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng chọn tệp để tải lên',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsUploadingBill(true);
-    const formData = new FormData();
-    formData.append('file', depositBill);
 
     try {
       const token = getToken();
@@ -589,69 +859,55 @@ export default function AccountPage() {
         throw new Error('Không tìm thấy token xác thực');
       }
 
-      const response = await fetch('/api/upload/bill', {
+      const formData = new FormData();
+      formData.append('file', depositBill);
+
+      const response = await fetch('/api/user/upload-deposit-bill', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
-        body: formData
+        body: formData,
+        credentials: 'include',
+        cache: 'no-store'
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setDepositBillUrl(data.url);
-        toast({
-          title: 'Thành công',
-          description: 'Tải lên bill thành công',
-          variant: toastVariant.success
-        });
-      } else {
-        toast({
-          title: 'Lỗi',
-          description: data.message || 'Có lỗi xảy ra khi tải lên bill',
-          variant: toastVariant.error
-        });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Có lỗi xảy ra khi tải lên ảnh');
       }
+
+      const data = await response.json();
+      setDepositBillUrl(data.url);
+
+      toast({
+        title: 'Thành công',
+        description: 'Tải lên ảnh bill thành công',
+        variant: 'default'
+      });
     } catch (error) {
-      console.error('Error uploading bill:', error);
+      console.error('Upload deposit bill error:', error);
       toast({
         title: 'Lỗi',
-        description: 'Có lỗi xảy ra khi tải lên bill',
-        variant: toastVariant.error
+        description: error instanceof Error ? error.message : 'Có lỗi xảy ra khi tải lên ảnh',
+        variant: 'destructive',
       });
     } finally {
       setIsUploadingBill(false);
     }
   };
 
-  // Xử lý gửi yêu cầu nạp tiền
   const handleSubmitDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!depositAmount || parseFloat(depositAmount) <= 0) {
-      toast({
-        title: 'Lỗi',
-        description: 'Vui lòng nhập số tiền hợp lệ',
-        variant: toastVariant.error
-      });
-      return;
-    }
-
-    if (!selectedDepositBank) {
-      toast({
-        title: 'Lỗi',
-        description: 'Vui lòng chọn ngân hàng',
-        variant: toastVariant.error
-      });
-      return;
-    }
 
     if (!depositBillUrl) {
       toast({
         title: 'Lỗi',
-        description: 'Vui lòng tải lên bill chuyển khoản',
-        variant: toastVariant.error
+        description: 'Vui lòng tải lên ảnh bill trước khi gửi yêu cầu',
+        variant: 'destructive',
       });
       return;
     }
@@ -664,14 +920,14 @@ export default function AccountPage() {
         throw new Error('Không tìm thấy token xác thực');
       }
 
-      const response = await fetch('/api/user/deposits', {
+      const response = await fetch('/api/user/deposit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          amount: parseFloat(depositAmount),
+          amount: depositAmount,
           bankName: selectedDepositBank,
           billUrl: depositBillUrl
         })
@@ -683,7 +939,7 @@ export default function AccountPage() {
         toast({
           title: 'Thành công',
           description: 'Yêu cầu nạp tiền đã được gửi',
-          variant: toastVariant.success
+          variant: 'default'
         });
         setDepositAmount('');
         setSelectedDepositBank('');
@@ -693,55 +949,24 @@ export default function AccountPage() {
         toast({
           title: 'Lỗi',
           description: data.message || 'Có lỗi xảy ra khi gửi yêu cầu nạp tiền',
-          variant: toastVariant.error
+          variant: 'destructive',
         });
       }
+
+      setIsSaving(false);
     } catch (error) {
-      console.error('Error submitting deposit:', error);
+      console.error('Submit deposit error:', error);
       toast({
         title: 'Lỗi',
-        description: 'Có lỗi xảy ra khi gửi yêu cầu nạp tiền',
-        variant: toastVariant.error
+        description: error instanceof Error ? error.message : 'Có lỗi xảy ra khi gửi yêu cầu nạp tiền',
+        variant: 'destructive',
       });
-    } finally {
       setIsSaving(false);
     }
   };
 
-  // Xử lý gửi yêu cầu rút tiền
   const handleSubmitWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
-      toast({
-        title: 'Lỗi',
-        description: 'Vui lòng nhập số tiền hợp lệ',
-        variant: toastVariant.error
-      });
-      return;
-    }
-
-    // Kiểm tra số dư
-    const balance = getBalance(user?.balance);
-    if (parseFloat(withdrawAmount) > balance) {
-      toast({
-        title: 'Lỗi',
-        description: 'Số dư không đủ để thực hiện giao dịch này',
-        variant: toastVariant.error
-      });
-      return;
-    }
-
-    // Kiểm tra thông tin ngân hàng
-    if (!user?.bankInfo?.accountNumber || !user?.bankInfo?.accountHolder || !user?.bankInfo?.bankName) {
-      toast({
-        title: 'Lỗi',
-        description: 'Vui lòng cập nhật thông tin ngân hàng trước khi rút tiền',
-        variant: toastVariant.error
-      });
-      setActiveTab('bank');
-      return;
-    }
 
     setIsSaving(true);
 
@@ -751,14 +976,14 @@ export default function AccountPage() {
         throw new Error('Không tìm thấy token xác thực');
       }
 
-      const response = await fetch('/api/user/withdraws', {
+      const response = await fetch('/api/user/withdraw', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          amount: parseFloat(withdrawAmount),
+          amount: withdrawAmount,
           note: withdrawNote
         })
       });
@@ -769,7 +994,7 @@ export default function AccountPage() {
         toast({
           title: 'Thành công',
           description: 'Yêu cầu rút tiền đã được gửi',
-          variant: toastVariant.success
+          variant: 'default'
         });
         setWithdrawAmount('');
         setWithdrawNote('');
@@ -777,21 +1002,22 @@ export default function AccountPage() {
         toast({
           title: 'Lỗi',
           description: data.message || 'Có lỗi xảy ra khi gửi yêu cầu rút tiền',
-          variant: toastVariant.error
+          variant: 'destructive',
         });
       }
+
+      setIsSaving(false);
     } catch (error) {
-      console.error('Error submitting withdraw:', error);
+      console.error('Submit withdraw error:', error);
       toast({
         title: 'Lỗi',
-        description: 'Có lỗi xảy ra khi gửi yêu cầu rút tiền',
-        variant: toastVariant.error
+        description: error instanceof Error ? error.message : 'Có lỗi xảy ra khi gửi yêu cầu rút tiền',
+        variant: 'destructive',
       });
-    } finally {
       setIsSaving(false);
     }
   };
-  
+
   // Handle authentication state and redirects
   useEffect(() => {
     // Only run on client side
@@ -848,8 +1074,8 @@ export default function AccountPage() {
                   {user?.username?.charAt(0).toUpperCase() || 'U'}
                 </div>
                 <div>
-                  <h2 className="font-medium">{user.username}</h2>
-                  <p className="text-sm text-gray-400">{user.email}</p>
+                  <h2 className="font-medium">{user?.username}</h2>
+                  <p className="text-sm text-gray-400">{user?.email}</p>
                 </div>
               </div>
               
@@ -910,8 +1136,8 @@ export default function AccountPage() {
                     {user?.username?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <div>
-                    <h2 className="font-medium text-sm">{user.username}</h2>
-                    <p className="text-xs text-gray-400">{user.email}</p>
+                    <h2 className="font-medium text-sm">{user?.username}</h2>
+                    <p className="text-xs text-gray-400">{user?.email}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -963,19 +1189,134 @@ export default function AccountPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <p className="text-gray-400">Họ và tên</p>
-                      <p>{user.fullName || 'Chưa cập nhật'}</p>
+                      {isEditingUserInfo && editField === 'fullName' ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            name="fullName"
+                            value={userInfoForm.fullName}
+                            onChange={handleUserInfoChange}
+                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm w-full"
+                            placeholder="Nhập họ và tên"
+                          />
+                          <button 
+                            onClick={handleSaveUserInfo}
+                            disabled={isSaving}
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
+                          >
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          </button>
+                          <button 
+                            onClick={handleCancelEditUserInfo}
+                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <p>{user?.fullName || 'Chưa cập nhật'}</p>
+                          {!user?.fullName && (
+                            <button 
+                              onClick={() => handleEditUserInfo('fullName')}
+                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <p className="text-gray-400">Email</p>
-                      <p>{user.email || 'Chưa cập nhật'}</p>
+                      {isEditingUserInfo && editField === 'email' ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="email"
+                            name="email"
+                            value={userInfoForm.email}
+                            onChange={handleUserInfoChange}
+                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm w-full"
+                            placeholder="Nhập email"
+                          />
+                          <button 
+                            onClick={handleSaveUserInfo}
+                            disabled={isSaving}
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
+                          >
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          </button>
+                          <button 
+                            onClick={handleCancelEditUserInfo}
+                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <p>{user?.email || 'Chưa cập nhật'}</p>
+                          {!user?.email && (
+                            <button 
+                              onClick={() => handleEditUserInfo('email')}
+                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <p className="text-gray-400">Số điện thoại</p>
-                      <p>{user.phone || 'Chưa cập nhật'}</p>
+                      {isEditingUserInfo && editField === 'phone' ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="tel"
+                            name="phone"
+                            value={userInfoForm.phone}
+                            onChange={handleUserInfoChange}
+                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm w-full"
+                            placeholder="Nhập số điện thoại"
+                          />
+                          <button 
+                            onClick={handleSaveUserInfo}
+                            disabled={isSaving}
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
+                          >
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          </button>
+                          <button 
+                            onClick={handleCancelEditUserInfo}
+                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <p>{user?.phone || 'Chưa cập nhật'}</p>
+                          {!user?.phone && (
+                            <button 
+                              onClick={() => handleEditUserInfo('phone')}
+                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <p className="text-gray-400">Địa chỉ</p>
-                      <p>{user.address || 'Chưa cập nhật'}</p>
+                      <div className="flex items-center">
+                        <p>{user?.address || 'Chưa cập nhật'}</p>
+                        {!user?.address && (
+                          <span className="ml-2 text-gray-400">
+                            <Pencil className="h-4 w-4" />
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -993,8 +1334,8 @@ export default function AccountPage() {
                         <span className="text-yellow-400">Chưa xác minh</span>
                       )}
                     </p>
-                    <p><span className="text-gray-400">Số dư khả dụng:</span> {getBalance(user.balance).toLocaleString()} VNĐ</p>
-                    <p><span className="text-gray-400">Ngày tạo tài khoản:</span> {formatDate(user.createdAt)}</p>
+                    <p><span className="text-gray-400">Số dư khả dụng:</span> {getBalance(user?.balance).toLocaleString()} VNĐ</p>
+                    <p><span className="text-gray-400">Ngày tạo tài khoản:</span> {formatDate(user?.createdAt)}</p>
                   </div>
                 </div>
               </div>
@@ -1008,7 +1349,7 @@ export default function AccountPage() {
                 </div>
 
                 {false ? ( // Vô hiệu hóa hoàn toàn form chỉnh sửa
-                  <form onSubmit={handleSubmitBankInfo} className="space-y-4 max-w-2xl">
+                  <form onSubmit={handleSubmitBankInfoForm} className="space-y-4 max-w-2xl">
                     <div>
                       <label htmlFor="fullName" className="block text-gray-400 mb-1">Tên chủ tài khoản</label>
                       <input
@@ -1082,18 +1423,180 @@ export default function AccountPage() {
                 ) : (
                   <div className="bg-gray-800/50 p-6 rounded-lg max-w-2xl">
                     <div className="space-y-3">
-                      <p><span className="text-gray-400">Tên chủ tài khoản:</span> {bankForm.accountHolder || 'Chưa cập nhật'}</p>
-                      <p><span className="text-gray-400">Loại tài khoản:</span> {bankForm.bankType || 'Chưa cập nhật'}</p>
-                      <p><span className="text-gray-400">Tên ngân hàng/Ví điện tử:</span> {bankForm.bankName || 'Chưa cập nhật'}</p>
-                      <p><span className="text-gray-400">Số tài khoản/SĐT:</span> {bankForm.accountNumber || 'Chưa cập nhật'}</p>
-                      <p>
-                        <span className="text-gray-400">Trạng thái xác minh:</span>{' '}
+                      {/* Tên chủ tài khoản */}
+                      {isEditingBankInfo && editBankField === 'accountHolder' ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-400 min-w-[150px]">Tên chủ tài khoản:</span>
+                          <input
+                            type="text"
+                            name="accountHolder"
+                            value={bankForm.accountHolder}
+                            onChange={(e) => handleBankFormChange(e)}
+                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm flex-1"
+                            placeholder="Nhập tên chủ tài khoản"
+                          />
+                          <button 
+                            onClick={() => handleSaveBankInfo()}
+                            disabled={isSavingBank}
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
+                          >
+                            {isSavingBank ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          </button>
+                          <button 
+                            onClick={() => handleCancelEditBankInfo()}
+                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <span className="text-gray-400 min-w-[150px]">Tên chủ tài khoản:</span>
+                          <p className="flex-1">{bankForm.accountHolder || 'Chưa cập nhật'}</p>
+                          {!bankForm.accountHolder && (
+                            <button 
+                              onClick={() => handleEditBankInfo('accountHolder')}
+                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Loại tài khoản */}
+                      {isEditingBankInfo && editBankField === 'bankType' ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-400 min-w-[150px]">Loại tài khoản:</span>
+                          <select
+                            name="bankType"
+                            value={bankForm.bankType}
+                            onChange={(e) => handleBankFormChange(e)}
+                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm flex-1"
+                          >
+                            <option value="">Chọn loại tài khoản</option>
+                            <option value="bank">Ngân hàng</option>
+                            <option value="e-wallet">Ví điện tử</option>
+                          </select>
+                          <button 
+                            onClick={() => handleSaveBankInfo()}
+                            disabled={isSavingBank}
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
+                          >
+                            {isSavingBank ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          </button>
+                          <button 
+                            onClick={() => handleCancelEditBankInfo()}
+                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <span className="text-gray-400 min-w-[150px]">Loại tài khoản:</span>
+                          <p className="flex-1">{bankForm.bankType || 'Chưa cập nhật'}</p>
+                          {!bankForm.bankType && (
+                            <button 
+                              onClick={() => handleEditBankInfo('bankType')}
+                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Tên ngân hàng/Ví điện tử */}
+                      {isEditingBankInfo && editBankField === 'bankName' ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-400 min-w-[150px]">Tên ngân hàng/Ví điện tử:</span>
+                          <input
+                            type="text"
+                            name="bankName"
+                            value={bankForm.bankName}
+                            onChange={(e) => handleBankFormChange(e)}
+                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm flex-1"
+                            placeholder="Nhập tên ngân hàng/ví điện tử"
+                          />
+                          <button 
+                            onClick={() => handleSaveBankInfo()}
+                            disabled={isSavingBank}
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
+                          >
+                            {isSavingBank ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          </button>
+                          <button 
+                            onClick={() => handleCancelEditBankInfo()}
+                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <span className="text-gray-400 min-w-[150px]">Tên ngân hàng/Ví điện tử:</span>
+                          <p className="flex-1">{bankForm.bankName || 'Chưa cập nhật'}</p>
+                          {!bankForm.bankName && (
+                            <button 
+                              onClick={() => handleEditBankInfo('bankName')}
+                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Số tài khoản/SĐT */}
+                      {isEditingBankInfo && editBankField === 'accountNumber' ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-400 min-w-[150px]">Số tài khoản/SĐT:</span>
+                          <input
+                            type="text"
+                            name="accountNumber"
+                            value={bankForm.accountNumber}
+                            onChange={(e) => handleBankFormChange(e)}
+                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm flex-1"
+                            placeholder="Nhập số tài khoản hoặc số điện thoại"
+                          />
+                          <button 
+                            onClick={() => handleSaveBankInfo()}
+                            disabled={isSavingBank}
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
+                          >
+                            {isSavingBank ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          </button>
+                          <button 
+                            onClick={() => handleCancelEditBankInfo()}
+                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <span className="text-gray-400 min-w-[150px]">Số tài khoản/SĐT:</span>
+                          <p className="flex-1">{bankForm.accountNumber || 'Chưa cập nhật'}</p>
+                          {!bankForm.accountNumber && (
+                            <button 
+                              onClick={() => handleEditBankInfo('accountNumber')}
+                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center">
+                        <span className="text-gray-400 min-w-[150px]">Trạng thái xác minh:</span>
                         {bankForm.verified ? (
                           <span className="text-green-400">Đã xác minh</span>
                         ) : (
                           <span className="text-yellow-400">Chưa xác minh</span>
                         )}
-                      </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1113,26 +1616,24 @@ export default function AccountPage() {
                     <h3 className="font-medium mb-4">Mặt trước CMND/CCCD</h3>
                     {verificationStatus.cccdFront ? (
                       <div className="relative">
-                        <img 
-                          src={verificationStatus.cccdFront} 
-                          alt="Mặt trước CMND/CCCD"
-                          className="w-full h-auto rounded border border-gray-700"
-                        />
-                        {uploadStatus.front && (
-                          <div className={`mt-2 text-sm ${uploadStatus.front.success ? 'text-green-400' : 'text-red-400'}`}>
-                            {uploadStatus.front.success ? (
-                              <span className="flex items-center">
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                {uploadStatus.front.message}
-                              </span>
-                            ) : (
-                              <span className="flex items-center">
-                                <XCircle className="w-4 h-4 mr-1" />
-                                {uploadStatus.front.message}
-                              </span>
-                            )}
+                        {verificationStatus.cccdFront && isValidUserUploadedImage(verificationStatus.cccdFront) ? (
+                          <img 
+                            src={verificationStatus.cccdFront} 
+                            alt="Mặt trước CMND/CCCD"
+                            className="w-full h-auto rounded border border-gray-700"
+                          />
+                        ) : (
+                          <div className="w-full h-48 flex items-center justify-center bg-gray-900 rounded border border-gray-700">
+                            <p className="text-gray-500">Không thể hiển thị ảnh</p>
                           </div>
                         )}
+                        <div className="mt-3 text-sm text-green-400 flex items-center">
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Đã tải lên thành công
+                        </div>
+                        <p className="mt-2 text-xs text-gray-400">
+                          Ảnh đã được gửi và không thể chỉnh sửa
+                        </p>
                       </div>
                     ) : (
                       <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center">
@@ -1174,26 +1675,24 @@ export default function AccountPage() {
                     <h3 className="font-medium mb-4">Mặt sau CMND/CCCD</h3>
                     {verificationStatus.cccdBack ? (
                       <div className="relative">
-                        <img 
-                          src={verificationStatus.cccdBack} 
-                          alt="Mặt sau CMND/CCCD"
-                          className="w-full h-auto rounded border border-gray-700"
-                        />
-                        {uploadStatus.back && (
-                          <div className={`mt-2 text-sm ${uploadStatus.back.success ? 'text-green-400' : 'text-red-400'}`}>
-                            {uploadStatus.back.success ? (
-                              <span className="flex items-center">
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                {uploadStatus.back.message}
-                              </span>
-                            ) : (
-                              <span className="flex items-center">
-                                <XCircle className="w-4 h-4 mr-1" />
-                                {uploadStatus.back.message}
-                              </span>
-                            )}
+                        {verificationStatus.cccdBack && isValidUserUploadedImage(verificationStatus.cccdBack) ? (
+                          <img 
+                            src={verificationStatus.cccdBack} 
+                            alt="Mặt sau CMND/CCCD"
+                            className="w-full h-auto rounded border border-gray-700"
+                          />
+                        ) : (
+                          <div className="w-full h-48 flex items-center justify-center bg-gray-900 rounded border border-gray-700">
+                            <p className="text-gray-500">Không thể hiển thị ảnh</p>
                           </div>
                         )}
+                        <div className="mt-3 text-sm text-green-400 flex items-center">
+                          <CheckCircle className="w-4 h-4 mr-1" />
+                          Đã tải lên thành công
+                        </div>
+                        <p className="mt-2 text-xs text-gray-400">
+                          Ảnh đã được gửi và không thể chỉnh sửa
+                        </p>
                       </div>
                     ) : (
                       <div className="border-2 border-dashed border-gray-700 rounded-lg p-6 text-center">
@@ -1230,6 +1729,60 @@ export default function AccountPage() {
                     )}
                   </div>
                 </div>
+
+                {/* Verification Status */}
+                {(verificationStatus.cccdFront && verificationStatus.cccdBack) && (
+                  <div className="bg-gray-800/50 p-6 rounded-lg mt-6">
+                    <h3 className="font-medium mb-4">Trạng thái xác minh</h3>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">Trạng thái:</span>
+                      {verificationStatus.verified ? (
+                        <span className="bg-green-900/30 text-green-400 px-3 py-1 rounded-full text-sm">
+                          Đã xác minh
+                        </span>
+                      ) : user?.verification?.status === 'pending' ? (
+                        <span className="bg-yellow-900/30 text-yellow-400 px-3 py-1 rounded-full text-sm">
+                          Đang xử lý
+                        </span>
+                      ) : user?.verification?.status === 'rejected' ? (
+                        <span className="bg-red-900/30 text-red-400 px-3 py-1 rounded-full text-sm">
+                          Từ chối
+                        </span>
+                      ) : (
+                        <span className="bg-blue-900/30 text-blue-400 px-3 py-1 rounded-full text-sm">
+                          Đã gửi
+                        </span>
+                      )}
+                    </div>
+                    
+                    {user?.verification?.submittedAt && (
+                      <div className="mt-2">
+                        <span className="text-gray-400 text-sm">Ngày gửi:</span>
+                        <span className="ml-2 text-sm">{formatDate(user?.verification.submittedAt)}</span>
+                      </div>
+                    )}
+                    
+                    {user?.verification?.reviewedAt && (
+                      <div className="mt-2">
+                        <span className="text-gray-400 text-sm">Ngày xử lý:</span>
+                        <span className="ml-2 text-sm">{formatDate(user?.verification.reviewedAt)}</span>
+                      </div>
+                    )}
+                    
+                    {user?.verification?.rejectionReason && (
+                      <div className="mt-3 p-3 bg-red-900/20 border border-red-800/30 rounded-md">
+                        <span className="text-red-400 text-sm font-medium">Lý do từ chối:</span>
+                        <p className="mt-1 text-sm">{user?.verification.rejectionReason}</p>
+                      </div>
+                    )}
+                    
+                    <div className="mt-4 p-3 bg-blue-900/20 border border-blue-800/30 rounded-md">
+                      <p className="text-sm text-blue-200">
+                        <span className="font-medium">Lưu ý:</span> Ảnh CMND/CCCD đã được gửi đi và không thể chỉnh sửa. Nếu cần hỗ trợ, vui lòng liên hệ với bộ phận CSKH.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-8 bg-blue-900/20 border border-blue-800/50 rounded-lg p-4 text-sm text-blue-200">
                   <h4 className="font-medium mb-2">Hướng dẫn tải ảnh:</h4>
@@ -1282,6 +1835,19 @@ export default function AccountPage() {
                         required
                         minLength={6}
                       />
+                    </div>
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-gray-400 mb-1">Xác nhận mật khẩu mới</label>
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        value={passwordForm.confirmPassword}
+                        onChange={handlePasswordChange}
+                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white"
+                        required
+                        minLength={6}
+                      />
                       {passwordError && <p className="mt-1 text-sm text-red-400">{passwordError}</p>}
                     </div>
                     <Button type="submit" className="mt-4 bg-blue-600 hover:bg-blue-700" disabled={isSaving}>
@@ -1314,9 +1880,9 @@ export default function AccountPage() {
                     <div className="p-4 text-red-400 text-center">
                       Không thể tải thông tin ngân hàng. Vui lòng thử lại sau.
                     </div>
-                  ) : platformBanks && platformBanks.length > 0 ? (
+                  ) : platformBanks.length > 0 ? (
                     <div className="space-y-4">
-                      {platformBanks.map((bank, index) => (
+                      {platformBanks?.map((bank: any, index: number) => (
                         <div key={index} className="border border-gray-700 rounded-lg p-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -1408,7 +1974,7 @@ export default function AccountPage() {
                         required
                       >
                         <option value="">Chọn ngân hàng</option>
-                        {platformBanks && platformBanks.map((bank, index) => (
+                        {platformBanks && platformBanks.map((bank: any, index: number) => (
                           <option key={index} value={bank.bankName}>
                             {bank.bankName}
                           </option>
@@ -1430,7 +1996,7 @@ export default function AccountPage() {
                         {depositBill ? (
                           <div className="space-y-2">
                             <div className="flex items-center">
-                              <FileImage className="h-5 w-5 mr-2 text-blue-500" />
+                                <Upload className="h-5 w-5 mr-2 text-blue-500" />
                               <span className="text-sm">{depositBill.name}</span>
                             </div>
                             
@@ -1438,7 +2004,7 @@ export default function AccountPage() {
                               <Button 
                                 type="button" 
                                 onClick={handleUploadDepositBill} 
-                                disabled={isUploadingBill || depositBillUrl}
+                                disabled={isUploadingBill || depositBillUrl ? true : false}
                                 className="text-xs py-1 px-3 h-auto"
                               >
                                 {isUploadingBill ? (
@@ -1482,6 +2048,24 @@ export default function AccountPage() {
                       </div>
                     </div>
                     
+                    <div>
+                      <label htmlFor="depositBank" className="block text-gray-400 mb-1">Chọn ngân hàng đã chuyển</label>
+                      <select
+                        id="depositBank"
+                        value={selectedDepositBank}
+                        onChange={(e) => setSelectedDepositBank(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white"
+                        required
+                      >
+                        <option value="">Chọn ngân hàng</option>
+                        {platformBanks && platformBanks.map((bank: any, index: number) => (
+                          <option key={index} value={bank.bankName}>
+                            {bank.bankName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
                     <Button 
                       type="submit" 
                       className="mt-4 bg-blue-600 hover:bg-blue-700" 
@@ -1523,7 +2107,7 @@ export default function AccountPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {deposits.map((deposit, index) => (
+                          {deposits?.map((deposit: any, index: number) => (
                             <tr key={index} className="border-b border-gray-800">
                               <td className="py-3">{deposit.id || deposit._id}</td>
                               <td className="py-3">{formatDate(deposit.createdAt)}</td>
@@ -1566,19 +2150,19 @@ export default function AccountPage() {
                   {/* Thông tin ngân hàng người dùng */}
                   <div className="mb-6 p-4 border border-gray-700 rounded-lg">
                     <h4 className="text-sm font-medium text-gray-400 mb-2">Thông tin tài khoản nhận tiền</h4>
-                    {user?.bankInfo?.accountNumber ? (
+                    {user?.bankInfo?.verified ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <p className="text-gray-400 text-xs">Chủ tài khoản</p>
-                          <p className="font-medium">{user.bankInfo.accountHolder}</p>
+                          <p className="font-medium">{user?.bankInfo.accountHolder}</p>
                         </div>
                         <div>
                           <p className="text-gray-400 text-xs">Ngân hàng</p>
-                          <p className="font-medium">{user.bankInfo.bankName}</p>
+                          <p className="font-medium">{user?.bankInfo.bankName}</p>
                         </div>
                         <div>
                           <p className="text-gray-400 text-xs">Số tài khoản</p>
-                          <p className="font-medium">{user.bankInfo.accountNumber}</p>
+                          <p className="font-medium">{user?.bankInfo.accountNumber}</p>
                         </div>
                       </div>
                     ) : (
@@ -1627,7 +2211,7 @@ export default function AccountPage() {
                     
                     <div className="p-3 bg-yellow-900/20 border border-yellow-800/50 rounded-lg text-sm text-yellow-200">
                       <p className="flex items-center">
-                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        <XCircle className="h-5 w-5 text-yellow-400 mr-2" />
                         Lưu ý: Yêu cầu rút tiền sẽ được xử lý trong vòng 24 giờ làm việc.
                       </p>
                     </div>
@@ -1673,7 +2257,7 @@ export default function AccountPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {withdraws.map((withdraw, index) => (
+                          {withdraws?.map((withdraw: any, index: number) => (
                             <tr key={index} className="border-b border-gray-800">
                               <td className="py-3">{withdraw.id || withdraw._id}</td>
                               <td className="py-3">{formatDate(withdraw.createdAt)}</td>
@@ -1709,4 +2293,4 @@ export default function AccountPage() {
       </div>
     </div>
   );
-};
+}
