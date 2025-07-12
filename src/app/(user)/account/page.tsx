@@ -5,12 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { Menu, CheckCircle, XCircle, Loader2, Check, X, Pencil } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { Menu, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { PersonalInfoSection } from './components/personal-info-section';
 import { BankInfoSection } from './components/bank-info-section';
-import { Select } from '@/components/ui/select';
-// Remove unused import
 
 type TabType = 'overview' | 'bank' | 'verify' | 'password' | 'deposit' | 'withdraw';
 
