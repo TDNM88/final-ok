@@ -291,27 +291,18 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Nếu không có token, chuyển hướng về trang đăng nhập
+  // Nếu không có token, vẫn cho phép truy cập và để client-side xử lý xác thực
   if (!token) {
-    console.log('No token found, redirecting to login');
+    console.log('No token found in middleware, allowing access for client-side auth');
     
-    // Nếu là trang công khai, không cần chuyển hướng
-    if (isPublicRoute) {
+    // Nếu là trang công khai hoặc API, cho phép truy cập
+    if (isPublicRoute || pathname.startsWith('/api/')) {
       return response;
     }
     
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('from', pathname);
-    
-    // Nếu là API request, trả về lỗi 401 thay vì redirect
-    if (pathname.startsWith('/api/')) {
-      return new NextResponse(
-        JSON.stringify({ message: 'Unauthorized' }), 
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    return NextResponse.redirect(loginUrl);
+    // Cho phép truy cập vào các trang admin và để client-side kiểm tra xác thực
+    // Client-side sẽ tự chuyển hướng nếu không có quyền truy cập
+    return response;
   }
 
   // If has token but trying to access auth pages, redirect to home

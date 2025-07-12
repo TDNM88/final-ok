@@ -62,13 +62,19 @@ function useAuthStandalone(): AuthContextType {
   const checkAuth = async () => {
     try {
       console.log('Checking authentication status...');
+      
+      // Lấy token từ localStorage
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      console.log('Token from localStorage:', token ? 'Found' : 'Not found');
+      
       const res = await fetch('/api/auth/me', {
         method: 'GET',
         credentials: 'include', // This ensures cookies are sent with the request
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
-          'Expires': '0'
+          'Expires': '0',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
       });
       
@@ -175,14 +181,15 @@ function useAuthStandalone(): AuthContextType {
         console.log('Login API call successful, response:', data);
         
         // Lấy token từ response nếu có
-        const token = data.token || data.accessToken;
+        const token = data.token;
         if (token) {
-          console.log('Token received in response, storing...');
-          // Lưu token vào localStorage để sử dụng cho các request sau
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('token', token);
-            localStorage.setItem('authToken', token); // Lưu cả hai key để đảm bảo tương thích
-          }
+          console.log('Saving token to localStorage');
+          localStorage.setItem('token', token);
+          localStorage.setItem('authToken', token); // Lưu cả hai key để đảm bảo tương thích
+          
+          // Thêm các thông tin bổ sung để hỗ trợ xác thực client-side
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('loginTimestamp', Date.now().toString());
         } else {
           console.warn('No token found in login response');
         }

@@ -80,6 +80,22 @@ export default function LoginPage() {
           localStorage.setItem('redirectAfterLogin', callbackUrl);
           
           console.log('Login state saved to localStorage');
+          
+          // Đảm bảo token được lưu trong localStorage
+          const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+          console.log('Token in localStorage after login:', token ? 'Found' : 'Not found');
+          
+          if (!token) {
+            console.warn('Token not found in localStorage, attempting to retrieve from login result');
+            // Nếu không có token trong localStorage, thử lấy từ kết quả đăng nhập
+            // Sử dụng type assertion để tránh lỗi TypeScript
+            const loginResult = result as { success: boolean; message?: string; token?: string };
+            if (loginResult.token) {
+              console.log('Token found in login result, saving to localStorage');
+              localStorage.setItem('token', loginResult.token);
+              localStorage.setItem('authToken', loginResult.token);
+            }
+          }
         } catch (err) {
           console.error('Error saving to localStorage:', err);
         }
@@ -87,22 +103,19 @@ export default function LoginPage() {
         // Thêm delay ngắn để đảm bảo trạng thái đăng nhập được cập nhật
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Chuyển hướng trực tiếp mà không cần kiểm tra isAuthenticated()
-        // Vì đăng nhập đã thành công, chúng ta có thể chuyển hướng người dùng
-        console.log('Redirecting after successful login');
-        
-        // Chuyển hướng với tham số auth=true để đảm bảo không bị chuyển hướng lại
-        const redirectUrl = new URL(callbackUrl, window.location.origin);
-        redirectUrl.searchParams.set('auth', 'true');
-        redirectUrl.searchParams.set('redirect', 'false');
-        redirectUrl.searchParams.set('timestamp', Date.now().toString());
-        
-        // Hiển thị thông báo thành công và link
+        // Hiển thị thông báo thành công
         setError("Đăng nhập thành công! Đang chuyển hướng...");
         
         // Chuyển hướng sau 1 giây
         setTimeout(() => {
-          window.location.href = redirectUrl.toString();
+          if (isAdmin()) {
+            console.log('Admin user detected, redirecting to admin dashboard');
+            // Sử dụng window.location.href để tải lại trang hoàn toàn
+            window.location.href = '/admin';
+          } else {
+            console.log('Regular user, redirecting to:', callbackUrl);
+            window.location.href = callbackUrl;
+          }
         }, 1000);
       } else {
         console.error('Login failed:', result?.message || 'No error message')
