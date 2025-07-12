@@ -47,6 +47,7 @@ interface BankInfo {
   bankType?: string;
   bankCode?: string;
   verified?: boolean;
+  pendingVerification?: boolean;
 }
 
 interface VerificationData {
@@ -132,7 +133,8 @@ export default function AccountPage() {
     accountType: user?.bankInfo?.accountType || 'savings',
     bankType: user?.bankInfo?.bankType || '',
     bankCode: user?.bankInfo?.bankCode || '',
-    verified: user?.bankInfo?.verified || false
+    verified: user?.bankInfo?.verified || false,
+    pendingVerification: user?.bankInfo?.pendingVerification || false
   });
   
   // Cập nhật form ngân hàng khi thông tin người dùng thay đổi
@@ -146,7 +148,8 @@ export default function AccountPage() {
         accountType: user?.bankInfo?.accountType || 'savings',
         bankType: user?.bankInfo?.bankType || '',
         bankCode: user?.bankInfo?.bankCode || '',
-        verified: user?.bankInfo?.verified || false
+        verified: user?.bankInfo?.verified || false,
+        pendingVerification: user?.bankInfo?.pendingVerification || false
       });
     }
   }, [user]);
@@ -563,12 +566,21 @@ const handleBankFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelect
     });
   };
 
-const handleEditBankInfo = (field: string) => {
-    // Không cho phép chỉnh sửa nếu thông tin ngân hàng đã được xác minh
+  const handleEditBankInfo = (field: string) => {
+    // Không cho phép chỉnh sửa nếu thông tin ngân hàng đã được xác minh hoặc đang chờ xác minh
     if (bankForm.verified) {
       toast({
         title: 'Không thể chỉnh sửa',
         description: 'Thông tin ngân hàng đã được xác minh và không thể chỉnh sửa',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (bankForm.pendingVerification) {
+      toast({
+        title: 'Không thể chỉnh sửa',
+        description: 'Thông tin ngân hàng đang chờ xác minh và không thể chỉnh sửa',
         variant: 'destructive',
       });
       return;
@@ -592,9 +604,15 @@ const handleSaveBankInfo = async () => {
       // Log token for debugging (only show first few characters)
       console.log('Using token for bank info update:', token.substring(0, 10) + '...');
       
-      // Ensure we have all required fields
-      if (!bankForm.accountHolder || !bankForm.bankName || !bankForm.accountNumber) {
-        throw new Error('Vui lòng điền đầy đủ thông tin ngân hàng');
+      // Ensure we have all required fields (chỉ cần tên ngân hàng, chủ tài khoản, số tài khoản)
+      if (!bankForm.accountHolder) {
+        throw new Error('Vui lòng điền tên chủ tài khoản');
+      }
+      if (!bankForm.bankName) {
+        throw new Error('Vui lòng điền tên ngân hàng');
+      }
+      if (!bankForm.accountNumber) {
+        throw new Error('Vui lòng điền số tài khoản');
       }
       
       // Prepare data to send
@@ -1512,6 +1530,26 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                 ) : (
                   <div className="bg-gray-800/50 p-6 rounded-lg max-w-2xl">
                     <div className="space-y-3">
+                      {/* Trạng thái xác minh */}
+                      <div className="flex items-center mb-4 bg-gray-700/50 p-3 rounded-md">
+                        <span className="text-gray-300 min-w-[150px]">Trạng thái xác minh:</span>
+                        {bankForm.verified ? (
+                          <div className="flex items-center text-green-500">
+                            <CheckCircle className="h-5 w-5 mr-2" />
+                            <span>Đã xác minh</span>
+                          </div>
+                        ) : bankForm.pendingVerification ? (
+                          <div className="flex items-center text-yellow-500">
+                            <AlertTriangle className="h-5 w-5 mr-2" />
+                            <span>Đang chờ xác minh</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-gray-400">
+                            <XCircle className="h-5 w-5 mr-2" />
+                            <span>Chưa xác minh</span>
+                          </div>
+                        )}
+                      </div>
                       {/* Tên chủ tài khoản */}
                       {isEditingBankInfo && editBankField === 'accountHolder' ? (
                         <div className="flex items-center space-x-2">
@@ -1542,7 +1580,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         <div className="flex items-center">
                           <span className="text-gray-400 min-w-[150px]">Tên chủ tài khoản:</span>
                           <p className="flex-1">{bankForm.accountHolder || 'Chưa cập nhật'}</p>
-                          {!bankForm.verified && (
+                          {!bankForm.verified && !bankForm.pendingVerification && (
                             <button 
                               onClick={() => handleEditBankInfo('accountHolder')}
                               className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
@@ -1583,7 +1621,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         <div className="flex items-center">
                           <span className="text-gray-400 min-w-[150px]">Tên hiển thị:</span>
                           <p className="flex-1">{bankForm.name || 'Chưa cập nhật'}</p>
-                          {!bankForm.verified && (
+                          {!bankForm.verified && !bankForm.pendingVerification && (
                             <button 
                               onClick={() => handleEditBankInfo('name')}
                               className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
@@ -1626,7 +1664,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         <div className="flex items-center">
                           <span className="text-gray-400 min-w-[150px]">Loại tài khoản:</span>
                           <p className="flex-1">{bankForm.bankType || 'Chưa cập nhật'}</p>
-                          {!bankForm.verified && (
+                          {!bankForm.verified && !bankForm.pendingVerification && (
                             <button 
                               onClick={() => handleEditBankInfo('bankType')}
                               className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
@@ -1667,7 +1705,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         <div className="flex items-center">
                           <span className="text-gray-400 min-w-[150px]">Tên ngân hàng/Ví điện tử:</span>
                           <p className="flex-1">{bankForm.bankName || 'Chưa cập nhật'}</p>
-                          {!bankForm.verified && (
+                          {!bankForm.verified && !bankForm.pendingVerification && (
                             <button 
                               onClick={() => handleEditBankInfo('bankName')}
                               className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
@@ -1708,7 +1746,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         <div className="flex items-center">
                           <span className="text-gray-400 min-w-[150px]">Số tài khoản/SĐT:</span>
                           <p className="flex-1">{bankForm.accountNumber || 'Chưa cập nhật'}</p>
-                          {!bankForm.verified && (
+                          {!bankForm.verified && !bankForm.pendingVerification && (
                             <button 
                               onClick={() => handleEditBankInfo('accountNumber')}
                               className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"

@@ -31,12 +31,28 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { accountHolder, bankType, bankName, accountNumber } = body;
+    const { accountHolder, bankName, accountNumber, bankType = '', name = '', bankCode = '', accountType = 'savings' } = body;
+    
+    console.log('[update-bank-info] Received bank info:', { accountHolder, bankName, accountNumber });
 
-    // Validate required fields
-    if (!accountHolder || !bankType || !bankName || !accountNumber) {
+    // Validate required fields - chỉ cần tên ngân hàng, chủ tài khoản, số tài khoản
+    if (!accountHolder) {
       return NextResponse.json(
-        { message: 'Vui lòng điền đầy đủ thông tin' },
+        { success: false, message: 'Vui lòng điền tên chủ tài khoản' },
+        { status: 400 }
+      );
+    }
+    
+    if (!bankName) {
+      return NextResponse.json(
+        { success: false, message: 'Vui lòng điền tên ngân hàng' },
+        { status: 400 }
+      );
+    }
+    
+    if (!accountNumber) {
+      return NextResponse.json(
+        { success: false, message: 'Vui lòng điền số tài khoản' },
         { status: 400 }
       );
     }
@@ -47,17 +63,28 @@ export async function POST(req: NextRequest) {
     
     console.log('[update-bank-info] Updating bank info for user:', userId);
 
+    // Prepare update data with required fields
+    const updateData: Record<string, any> = {
+      'bankInfo.accountHolder': accountHolder,
+      'bankInfo.bankName': bankName,
+      'bankInfo.accountNumber': accountNumber,
+      'bankInfo.verified': false, // Reset verification status when bank info changes
+      'bankInfo.pendingVerification': true, // Mark as pending verification
+      updatedAt: new Date()
+    };
+    
+    // Add optional fields if they exist
+    if (bankType) updateData['bankInfo.bankType'] = bankType;
+    if (name) updateData['bankInfo.name'] = name;
+    if (bankCode) updateData['bankInfo.bankCode'] = bankCode;
+    if (accountType) updateData['bankInfo.accountType'] = accountType;
+    
+    console.log('[update-bank-info] Updating with data:', updateData);
+    
     await db.collection('users').updateOne(
       { _id: new ObjectId(userId) },
       {
-        $set: {
-          'bankInfo.accountHolder': accountHolder,
-          'bankInfo.bankType': bankType,
-          'bankInfo.bankName': bankName,
-          'bankInfo.accountNumber': accountNumber,
-          'bankInfo.verified': false, // Reset verification status when bank info changes
-          updatedAt: new Date()
-        },
+        $set: updateData,
         $setOnInsert: {
           createdAt: new Date()
         }
