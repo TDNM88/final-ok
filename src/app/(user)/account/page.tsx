@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
-import { Menu, X, Loader2, Upload, CheckCircle, XCircle, UploadCloud, ArrowUpCircle, ArrowDownCircle, Copy, FileImage, AlertTriangle, Pencil, Check } from 'lucide-react';
+import { Menu, X, Loader2, Upload, CheckCircle, XCircle, UploadCloud, ArrowUpCircle, ArrowDownCircle, Copy, FileImage, AlertTriangle, Pencil, Check, Lock } from 'lucide-react';
 import useSWR from 'swr';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -547,10 +547,20 @@ export default function AccountPage() {
 
 const handleBankFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setBankForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // Cập nhật giá trị trong form
+    setBankForm(prev => {
+      const updatedForm = {
+        ...prev,
+        [name]: value
+      };
+      
+      // Hiển thị thông báo debug để theo dõi quá trình cập nhật
+      console.log(`Field '${name}' updated to '${value}'`);
+      console.log('Updated bank form:', updatedForm);
+      
+      return updatedForm;
+    });
   };
 
 const handleEditBankInfo = (field: string) => {
@@ -579,6 +589,8 @@ const handleSaveBankInfo = async () => {
         throw new Error('Không tìm thấy token xác thực');
       }
       
+      // Gửi toàn bộ thông tin trong form lên server thay vì chỉ gửi một trường
+      // Đồng thời vẫn giữ lại trường đang chỉnh sửa để server biết trường nào đã được thay đổi
       const response = await fetch('/api/user/update-bank-info', {
         method: 'POST',
         headers: {
@@ -586,7 +598,8 @@ const handleSaveBankInfo = async () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          [editBankField]: bankForm[editBankField as keyof typeof bankForm]
+          ...bankForm,
+          editedField: editBankField // Thêm trường này để server biết trường nào đã được chỉnh sửa
         })
       });
       
@@ -1402,6 +1415,17 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                       />
                     </div>
                     <div>
+                      <label htmlFor="name" className="block text-gray-400 mb-1">Tên hiển thị</label>
+                      <input
+                        id="name"
+                        name="name"
+                        type="text"
+                        value={bankForm.name}
+                        onChange={handleBankFormChange}
+                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white"
+                      />
+                    </div>
+                    <div>
                       <label htmlFor="bankType" className="block text-gray-400 mb-1">Loại tài khoản</label>
                       <select
                         id="bankType"
@@ -1495,6 +1519,47 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                           {!bankForm.verified && (
                             <button 
                               onClick={() => handleEditBankInfo('accountHolder')}
+                              className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Tên hiển thị */}
+                      {isEditingBankInfo && editBankField === 'name' ? (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-gray-400 min-w-[150px]">Tên hiển thị:</span>
+                          <input
+                            type="text"
+                            name="name"
+                            value={bankForm.name}
+                            onChange={(e) => handleBankFormChange(e)}
+                            className="bg-gray-700 text-white border border-gray-600 rounded px-2 py-1 text-sm flex-1"
+                            placeholder="Nhập tên hiển thị"
+                          />
+                          <button 
+                            onClick={() => handleSaveBankInfo()}
+                            disabled={isSavingBank}
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded p-1"
+                          >
+                            {isSavingBank ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          </button>
+                          <button 
+                            onClick={() => handleCancelEditBankInfo()}
+                            className="bg-gray-700 hover:bg-gray-600 text-white rounded p-1"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <span className="text-gray-400 min-w-[150px]">Tên hiển thị:</span>
+                          <p className="flex-1">{bankForm.name || 'Chưa cập nhật'}</p>
+                          {!bankForm.verified && (
+                            <button 
+                              onClick={() => handleEditBankInfo('name')}
                               className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
                             >
                               <Pencil className="h-4 w-4" />
@@ -1659,11 +1724,19 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                     {verificationStatus.cccdFront ? (
                       <div className="relative">
                         {verificationStatus.cccdFront && isValidUserUploadedImage(verificationStatus.cccdFront) ? (
-                          <img 
-                            src={verificationStatus.cccdFront} 
-                            alt="Mặt trước CMND/CCCD"
-                            className="w-full h-auto rounded border border-gray-700"
-                          />
+                          <div className="relative">
+                            <img 
+                              src={verificationStatus.cccdFront} 
+                              alt="Mặt trước CMND/CCCD"
+                              className="w-full h-auto rounded border border-gray-700 filter blur-sm brightness-75"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="bg-gray-900/70 px-3 py-2 rounded-md flex items-center">
+                                <Lock className="w-4 h-4 mr-2 text-yellow-400" />
+                                <span className="text-white text-sm font-medium">Đã khóa - Không thể chỉnh sửa</span>
+                              </div>
+                            </div>
+                          </div>
                         ) : (
                           <div className="w-full h-48 flex items-center justify-center bg-gray-900 rounded border border-gray-700">
                             <p className="text-gray-500">Không thể hiển thị ảnh</p>
@@ -1718,11 +1791,19 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                     {verificationStatus.cccdBack ? (
                       <div className="relative">
                         {verificationStatus.cccdBack && isValidUserUploadedImage(verificationStatus.cccdBack) ? (
-                          <img 
-                            src={verificationStatus.cccdBack} 
-                            alt="Mặt sau CMND/CCCD"
-                            className="w-full h-auto rounded border border-gray-700"
-                          />
+                          <div className="relative">
+                            <img 
+                              src={verificationStatus.cccdBack} 
+                              alt="Mặt sau CMND/CCCD"
+                              className="w-full h-auto rounded border border-gray-700 filter blur-sm brightness-75"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="bg-gray-900/70 px-3 py-2 rounded-md flex items-center">
+                                <Lock className="w-4 h-4 mr-2 text-yellow-400" />
+                                <span className="text-white text-sm font-medium">Đã khóa - Không thể chỉnh sửa</span>
+                              </div>
+                            </div>
+                          </div>
                         ) : (
                           <div className="w-full h-48 flex items-center justify-center bg-gray-900 rounded border border-gray-700">
                             <p className="text-gray-500">Không thể hiển thị ảnh</p>

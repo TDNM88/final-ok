@@ -5,10 +5,14 @@ import { ObjectId, Db } from 'mongodb';
 
 interface UpdateBankInfoRequest {
   accountHolder?: string;
+  name?: string;
   bankName?: string;
   bankType?: string;
   accountNumber?: string;
   bankCode?: string;
+  accountType?: string;
+  verified?: boolean;
+  editedField?: string; // Trường này được thêm để biết trường nào đã được chỉnh sửa
   [key: string]: any;
 }
 
@@ -31,7 +35,7 @@ export async function POST(request: Request) {
     const data: UpdateBankInfoRequest = await request.json();
     
     // Kiểm tra dữ liệu
-    const allowedFields = ['accountHolder', 'bankName', 'bankType', 'accountNumber', 'bankCode'];
+    const allowedFields = ['accountHolder', 'name', 'bankName', 'bankType', 'accountNumber', 'bankCode', 'accountType'];
     const updateData: Record<string, any> = {};
     
     // Chỉ lấy các trường được phép cập nhật
@@ -40,6 +44,10 @@ export async function POST(request: Request) {
         updateData[key] = data[key];
       }
     });
+    
+    // Log để debug
+    console.log('Received data:', data);
+    console.log('Update data:', updateData);
     
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Không có dữ liệu hợp lệ để cập nhật' }, { status: 400 });
