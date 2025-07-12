@@ -9,6 +9,23 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 
+interface BankInfo {
+  accountHolder: string;
+  accountNumber: string;
+  bankName: string;
+  bankType: string;
+  verified: boolean;
+  pendingVerification: boolean;
+  updatedAt?: string;
+}
+
+interface VerifiableField {
+  value: string;
+  verified: boolean;
+  pendingVerification: boolean;
+  updatedAt: string;
+}
+
 interface User {
   _id: string;
   fullName: string;
@@ -20,21 +37,9 @@ interface User {
     cccdFront?: string;
     cccdBack?: string;
   };
-  bankInfo?: {
-    accountHolder: string;
-    accountNumber: string;
-    bankName: string;
-    bankType: string;
-    verified: boolean;
-    pendingVerification: boolean;
-  };
+  bankInfo?: BankInfo;
   verifiableInfo?: {
-    [key: string]: {
-      value: string;
-      verified: boolean;
-      pendingVerification: boolean;
-      updatedAt: string;
-    }
+    [key: string]: VerifiableField;
   }
 }
 
@@ -110,8 +115,8 @@ export default function VerificationPage() {
       setUsers(users.map(user => {
         if (user._id === userId) {
           // Handle verification for specific fields
-          if (field === 'bankInfo') {
-            return {
+          if (field === 'bankInfo' && user.bankInfo) {
+            const updatedUser: User = {
               ...user,
               bankInfo: {
                 ...user.bankInfo,
@@ -119,8 +124,9 @@ export default function VerificationPage() {
                 pendingVerification: false
               }
             };
+            return updatedUser;
           } else if (user.verifiableInfo && user.verifiableInfo[field]) {
-            return {
+            const updatedUser: User = {
               ...user,
               verifiableInfo: {
                 ...user.verifiableInfo,
@@ -131,6 +137,7 @@ export default function VerificationPage() {
                 }
               }
             };
+            return updatedUser;
           }
         }
         return user;
