@@ -914,7 +914,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const formData = new FormData();
       formData.append('file', depositBill);
 
-      const response = await fetch('/api/user/upload-deposit-bill', {
+      const response = await fetch('/api/upload-deposit-bill', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
