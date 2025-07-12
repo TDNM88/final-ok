@@ -591,7 +591,7 @@ const handleSaveBankInfo = async () => {
       
       // Gửi toàn bộ thông tin trong form lên server thay vì chỉ gửi một trường
       // Đồng thời vẫn giữ lại trường đang chỉnh sửa để server biết trường nào đã được thay đổi
-      const response = await fetch('/api/user/update-bank-info', {
+      const response = await fetch('/api/update-bank-info', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
