@@ -645,6 +645,12 @@ const handleSaveBankInfo = async () => {
         // Cập nhật lại thông tin người dùng
         await refreshUser();
         
+        // Cập nhật trạng thái pendingVerification trong state để hiển thị ngay lập tức
+        setBankForm(prevForm => ({
+          ...prevForm,
+          pendingVerification: true
+        }));
+        
         // Reset trạng thái chỉnh sửa
         setIsEditingBankInfo(false);
         setEditBankField(null);
