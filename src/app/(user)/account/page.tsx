@@ -771,7 +771,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         throw new Error('Không tìm thấy token xác thực');
       }
 
-      const response = await fetch('/api/user/change-password', {
+      const response = await fetch('/api/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -779,7 +779,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           'Cache-Control': 'no-cache, no-store, must-revalidate'
         },
         body: JSON.stringify({
-          oldPassword: passwordForm.currentPassword,
+          currentPassword: passwordForm.currentPassword,
           newPassword: passwordForm.newPassword,
           confirmPassword: passwordForm.confirmPassword
         }),
