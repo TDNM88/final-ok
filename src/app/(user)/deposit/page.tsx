@@ -277,7 +277,7 @@ export default function DepositPage() {
                     </div>
                   )}
                 </div>
-              )
+              )}
             </div>
 
             <div>

@@ -6,10 +6,14 @@ import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
-import { Menu, X, Loader2, Upload, CheckCircle, XCircle, UploadCloud } from 'lucide-react';
+import { Menu, X, Loader2, Upload, CheckCircle, XCircle, UploadCloud, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import useSWR from 'swr';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { A } from 'framer-motion/dist/types.d-D0HXPxHm';
 
-type TabType = 'overview' | 'bank' | 'verify' | 'password';
+type TabType = 'overview' | 'bank' | 'verify' | 'password' | 'deposit' | 'withdraw';
 
 interface BankForm {
   fullName: string;
@@ -137,6 +141,17 @@ export default function AccountPage() {
     confirmPassword: ''
   });
 
+  // State cho tab nạp tiền
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositBill, setDepositBill] = useState<File | null>(null);
+  const [isUploadingBill, setIsUploadingBill] = useState(false);
+  const [depositBillUrl, setDepositBillUrl] = useState<string | null>(null);
+  const [selectedDepositBank, setSelectedDepositBank] = useState('');
+  
+  // State cho tab rút tiền
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawNote, setWithdrawNote] = useState('');
+  
   // Vô hiệu hóa chức năng chỉnh sửa thông tin ngân hàng
   const [isEditingBankInfo, setIsEditingBankInfo] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -200,6 +215,51 @@ export default function AccountPage() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+  
+  // Lấy thông tin ngân hàng nền tảng
+  const { data: platformBanks } = useSWR(
+    user ? '/api/platform/banks' : null,
+    async (url: string) => {
+      const res = await fetch(url, { 
+        headers: {
+          Authorization: `Bearer ${getToken()}`
+        }
+      });
+      if (!res.ok) throw new Error('Failed to fetch platform banks');
+      return res.json();
+    },
+    { revalidateOnFocus: false }
+  );
+  
+  // Lấy lịch sử nạp tiền
+  const { data: depositHistory } = useSWR(
+    user ? '/api/user/deposits' : null,
+    async (url: string) => {
+      const res = await fetch(url, { 
+        headers: {
+          Authorization: `Bearer ${getToken()}`
+        }
+      });
+      if (!res.ok) throw new Error('Failed to fetch deposit history');
+      return res.json();
+    },
+    { revalidateOnFocus: false }
+  );
+  
+  // Lấy lịch sử rút tiền
+  const { data: withdrawHistory } = useSWR(
+    user ? '/api/user/withdraws' : null,
+    async (url: string) => {
+      const res = await fetch(url, { 
+        headers: {
+          Authorization: `Bearer ${getToken()}`
+        }
+      });
+      if (!res.ok) throw new Error('Failed to fetch withdraw history');
+      return res.json();
+    },
+    { revalidateOnFocus: false }
+  );
 
   const getBalance = (balance: number | BalanceInfo | undefined): number => {
     if (balance === undefined) return 0;
@@ -438,15 +498,14 @@ export default function AccountPage() {
 
   const handleSubmitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast({
-        title: 'Lỗi',
-        description: 'Mật khẩu mới và xác nhận mật khẩu không khớp',
-        variant: 'destructive',
-      });
+    setPasswordError('');
+    
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('Mật khẩu mới phải có ít nhất 6 ký tự');
       return;
     }
+
+    setIsSaving(true);
 
     try {
       const token = getToken();
@@ -454,7 +513,7 @@ export default function AccountPage() {
         throw new Error('Không tìm thấy token xác thực');
       }
 
-      const response = await fetch('/api/change-password', {
+      const response = await fetch('/api/user/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -466,32 +525,273 @@ export default function AccountPage() {
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Có lỗi xảy ra khi đổi mật khẩu');
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: 'Thành công',
+          description: 'Mật khẩu đã được cập nhật',
+          variant: toastVariant.success
+        });
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      } else {
+        setPasswordError(data.message || 'Có lỗi xảy ra khi đổi mật khẩu');
       }
-
-      setPasswordForm({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-
-      toast({
-        title: 'Thành công',
-        description: 'Đổi mật khẩu thành công',
-        variant: 'default',
-      });
     } catch (error) {
-      console.error('Change password error:', error);
+      console.error('Error changing password:', error);
+      setPasswordError('Có lỗi xảy ra khi đổi mật khẩu');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  // Xử lý thay đổi file bill nạp tiền
+  const handleDepositBillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
       toast({
         title: 'Lỗi',
-        description: error instanceof Error ? error.message : 'Có lỗi xảy ra khi đổi mật khẩu',
-        variant: 'destructive',
+        description: 'Chỉ chấp nhận file ảnh định dạng JPG hoặc PNG',
+        variant: toastVariant.error
       });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      toast({
+        title: 'Lỗi',
+        description: 'Kích thước file không được vượt quá 5MB',
+        variant: toastVariant.error
+      });
+      return;
+    }
+
+    setDepositBill(file);
+  };
+
+  // Xử lý upload bill nạp tiền
+  const handleUploadDepositBill = async () => {
+    if (!depositBill) return;
+
+    setIsUploadingBill(true);
+    const formData = new FormData();
+    formData.append('file', depositBill);
+
+    try {
+      const token = getToken();
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+
+      const response = await fetch('/api/upload/bill', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setDepositBillUrl(data.url);
+        toast({
+          title: 'Thành công',
+          description: 'Tải lên bill thành công',
+          variant: toastVariant.success
+        });
+      } else {
+        toast({
+          title: 'Lỗi',
+          description: data.message || 'Có lỗi xảy ra khi tải lên bill',
+          variant: toastVariant.error
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading bill:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Có lỗi xảy ra khi tải lên bill',
+        variant: toastVariant.error
+      });
+    } finally {
+      setIsUploadingBill(false);
     }
   };
 
+  // Xử lý gửi yêu cầu nạp tiền
+  const handleSubmitDeposit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng nhập số tiền hợp lệ',
+        variant: toastVariant.error
+      });
+      return;
+    }
+
+    if (!selectedDepositBank) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng chọn ngân hàng',
+        variant: toastVariant.error
+      });
+      return;
+    }
+
+    if (!depositBillUrl) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng tải lên bill chuyển khoản',
+        variant: toastVariant.error
+      });
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const token = getToken();
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+
+      const response = await fetch('/api/user/deposits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: parseFloat(depositAmount),
+          bankName: selectedDepositBank,
+          billUrl: depositBillUrl
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: 'Thành công',
+          description: 'Yêu cầu nạp tiền đã được gửi',
+          variant: toastVariant.success
+        });
+        setDepositAmount('');
+        setSelectedDepositBank('');
+        setDepositBill(null);
+        setDepositBillUrl(null);
+      } else {
+        toast({
+          title: 'Lỗi',
+          description: data.message || 'Có lỗi xảy ra khi gửi yêu cầu nạp tiền',
+          variant: toastVariant.error
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting deposit:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Có lỗi xảy ra khi gửi yêu cầu nạp tiền',
+        variant: toastVariant.error
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Xử lý gửi yêu cầu rút tiền
+  const handleSubmitWithdraw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!withdrawAmount || parseFloat(withdrawAmount) <= 0) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng nhập số tiền hợp lệ',
+        variant: toastVariant.error
+      });
+      return;
+    }
+
+    // Kiểm tra số dư
+    const balance = getBalance(user?.balance);
+    if (parseFloat(withdrawAmount) > balance) {
+      toast({
+        title: 'Lỗi',
+        description: 'Số dư không đủ để thực hiện giao dịch này',
+        variant: toastVariant.error
+      });
+      return;
+    }
+
+    // Kiểm tra thông tin ngân hàng
+    if (!user?.bankInfo?.accountNumber || !user?.bankInfo?.accountHolder || !user?.bankInfo?.bankName) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng cập nhật thông tin ngân hàng trước khi rút tiền',
+        variant: toastVariant.error
+      });
+      setActiveTab('bank');
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const token = getToken();
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+
+      const response = await fetch('/api/user/withdraws', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          amount: parseFloat(withdrawAmount),
+          note: withdrawNote
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: 'Thành công',
+          description: 'Yêu cầu rút tiền đã được gửi',
+          variant: toastVariant.success
+        });
+        setWithdrawAmount('');
+        setWithdrawNote('');
+      } else {
+        toast({
+          title: 'Lỗi',
+          description: data.message || 'Có lỗi xảy ra khi gửi yêu cầu rút tiền',
+          variant: toastVariant.error
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting withdraw:', error);
+      toast({
+        title: 'Lỗi',
+        description: 'Có lỗi xảy ra khi gửi yêu cầu rút tiền',
+        variant: toastVariant.error
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
   // Handle authentication state and redirects
   useEffect(() => {
     // Only run on client side
@@ -579,6 +879,18 @@ export default function AccountPage() {
                   Đổi mật khẩu
                 </button>
                 <button
+                  onClick={() => setActiveTab('deposit')}
+                  className={`w-full text-left px-4 py-2 rounded-md ${activeTab === 'deposit' ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+                >
+                  Nạp tiền
+                </button>
+                <button
+                  onClick={() => setActiveTab('withdraw')}
+                  className={`w-full text-left px-4 py-2 rounded-md ${activeTab === 'withdraw' ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+                >
+                  Rút tiền
+                </button>
+                <button
                   onClick={logout}
                   className="w-full text-left px-4 py-2 rounded-md text-red-400 hover:bg-gray-700"
                 >
@@ -626,6 +938,18 @@ export default function AccountPage() {
                     className={`px-3 py-2 text-sm rounded ${activeTab === 'password' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
                   >
                     Mật khẩu
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('deposit')}
+                    className={`px-3 py-2 text-sm rounded ${activeTab === 'deposit' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                  >
+                    Nạp tiền
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('withdraw')}
+                    className={`px-3 py-2 text-sm rounded ${activeTab === 'withdraw' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                  >
+                    Rút tiền
                   </button>
                 </div>
               </div>
@@ -971,6 +1295,412 @@ export default function AccountPage() {
                       )}
                     </Button>
                   </form>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'deposit' && (
+              <div className="space-y-6">
+                <h1 className="text-2xl font-bold">Nạp tiền</h1>
+                
+                {/* Thông tin ngân hàng nền tảng */}
+                <div className="bg-gray-800/50 p-6 rounded-lg">
+                  <h3 className="text-lg font-medium mb-4">Thông tin chuyển khoản</h3>
+                  {platformBanksLoading ? (
+                    <div className="flex items-center justify-center p-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                    </div>
+                  ) : platformBanksError ? (
+                    <div className="p-4 text-red-400 text-center">
+                      Không thể tải thông tin ngân hàng. Vui lòng thử lại sau.
+                    </div>
+                  ) : platformBanks && platformBanks.length > 0 ? (
+                    <div className="space-y-4">
+                      {platformBanks.map((bank, index) => (
+                        <div key={index} className="border border-gray-700 rounded-lg p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-gray-400 text-sm">Ngân hàng</p>
+                              <p className="font-medium">{bank.bankName}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-sm">Chủ tài khoản</p>
+                              <p className="font-medium">{bank.accountHolder}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-sm">Số tài khoản</p>
+                              <div className="flex items-center">
+                                <p className="font-medium mr-2">{bank.accountNumber}</p>
+                                <button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(bank.accountNumber);
+                                    toast({
+                                      title: "Đã sao chép",
+                                      description: "Số tài khoản đã được sao chép vào clipboard",
+                                      variant: "default",
+                                    });
+                                  }}
+                                  className="text-blue-500 hover:text-blue-400 text-xs"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-gray-400 text-sm">Chi nhánh</p>
+                              <p className="font-medium">{bank.branch || "Không có thông tin"}</p>
+                            </div>
+                          </div>
+                          <div className="mt-4 pt-4 border-t border-gray-700">
+                            <p className="text-gray-400 text-sm mb-1">Nội dung chuyển khoản</p>
+                            <div className="flex items-center bg-gray-900 p-2 rounded">
+                              <p className="font-medium mr-2">{user?.username || "NAP_username"}</p>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(user?.username || "NAP_username");
+                                  toast({
+                                    title: "Đã sao chép",
+                                    description: "Nội dung chuyển khoản đã được sao chép vào clipboard",
+                                    variant: "default",
+                                  });
+                                }}
+                                className="text-blue-500 hover:text-blue-400 text-xs"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-yellow-400 text-center">
+                      Không có thông tin ngân hàng nào được cấu hình.
+                    </div>
+                  )}
+                </div>
+                
+                {/* Form nạp tiền */}
+                <div className="bg-gray-800/50 p-6 rounded-lg">
+                  <h3 className="text-lg font-medium mb-4">Tạo yêu cầu nạp tiền</h3>
+                  <form onSubmit={handleSubmitDeposit} className="space-y-4 max-w-2xl">
+                    <div>
+                      <label htmlFor="depositAmount" className="block text-gray-400 mb-1">Số tiền nạp (VNĐ)</label>
+                      <input
+                        id="depositAmount"
+                        type="number"
+                        value={depositAmount}
+                        onChange={(e) => setDepositAmount(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white"
+                        placeholder="Nhập số tiền"
+                        required
+                        min="10000"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="depositBank" className="block text-gray-400 mb-1">Chọn ngân hàng đã chuyển</label>
+                      <select
+                        id="depositBank"
+                        value={selectedDepositBank}
+                        onChange={(e) => setSelectedDepositBank(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white"
+                        required
+                      >
+                        <option value="">Chọn ngân hàng</option>
+                        {platformBanks && platformBanks.map((bank, index) => (
+                          <option key={index} value={bank.bankName}>
+                            {bank.bankName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-gray-400 mb-1">Bill chuyển khoản</label>
+                      <div className="border border-dashed border-gray-700 rounded-lg p-4">
+                        <input
+                          type="file"
+                          id="depositBill"
+                          accept="image/jpeg,image/png,image/jpg"
+                          className="hidden"
+                          onChange={handleDepositBillChange}
+                        />
+                        
+                        {depositBill ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center">
+                              <FileImage className="h-5 w-5 mr-2 text-blue-500" />
+                              <span className="text-sm">{depositBill.name}</span>
+                            </div>
+                            
+                            <div className="flex space-x-2">
+                              <Button 
+                                type="button" 
+                                onClick={handleUploadDepositBill} 
+                                disabled={isUploadingBill || depositBillUrl}
+                                className="text-xs py-1 px-3 h-auto"
+                              >
+                                {isUploadingBill ? (
+                                  <>
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    Đang tải lên...
+                                  </>
+                                ) : depositBillUrl ? (
+                                  <>
+                                    <CheckCircle className="mr-1 h-3 w-3" />
+                                    Đã tải lên
+                                  </>
+                                ) : (
+                                  'Tải lên'
+                                )}
+                              </Button>
+                              
+                              <Button 
+                                type="button" 
+                                onClick={() => {
+                                  setDepositBill(null);
+                                  setDepositBillUrl(null);
+                                }}
+                                variant="destructive"
+                                className="text-xs py-1 px-3 h-auto"
+                              >
+                                Xóa
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label
+                            htmlFor="depositBill"
+                            className="flex flex-col items-center justify-center cursor-pointer p-4"
+                          >
+                            <UploadCloud className="w-10 h-10 text-gray-500 mb-2" />
+                            <p className="text-gray-400">Tải lên ảnh bill chuyển khoản</p>
+                            <p className="text-xs text-gray-500 mt-1">JPG, PNG (tối đa 5MB)</p>
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <Button 
+                      type="submit" 
+                      className="mt-4 bg-blue-600 hover:bg-blue-700" 
+                      disabled={isSaving || !depositBillUrl}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        'Gửi yêu cầu nạp tiền'
+                      )}
+                    </Button>
+                  </form>
+                </div>
+                
+                {/* Lịch sử nạp tiền */}
+                <div className="bg-gray-800/50 p-6 rounded-lg">
+                  <h3 className="text-lg font-medium mb-4">Lịch sử nạp tiền</h3>
+                  {depositsLoading ? (
+                    <div className="flex items-center justify-center p-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                    </div>
+                  ) : depositsError ? (
+                    <div className="p-4 text-red-400 text-center">
+                      Không thể tải lịch sử nạp tiền. Vui lòng thử lại sau.
+                    </div>
+                  ) : deposits && deposits.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-gray-400 border-b border-gray-700">
+                            <th className="pb-2 text-left">Mã giao dịch</th>
+                            <th className="pb-2 text-left">Ngày</th>
+                            <th className="pb-2 text-right">Số tiền</th>
+                            <th className="pb-2 text-left">Ngân hàng</th>
+                            <th className="pb-2 text-left">Trạng thái</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {deposits.map((deposit, index) => (
+                            <tr key={index} className="border-b border-gray-800">
+                              <td className="py-3">{deposit.id || deposit._id}</td>
+                              <td className="py-3">{formatDate(deposit.createdAt)}</td>
+                              <td className="py-3 text-right">{formatCurrency(deposit.amount)} VNĐ</td>
+                              <td className="py-3">{deposit.bankName}</td>
+                              <td className="py-3">
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  deposit.status === 'approved' ? 'bg-green-900/30 text-green-400' :
+                                  deposit.status === 'pending' ? 'bg-yellow-900/30 text-yellow-400' :
+                                  deposit.status === 'rejected' ? 'bg-red-900/30 text-red-400' :
+                                  'bg-gray-900/30 text-gray-400'
+                                }`}>
+                                  {deposit.status === 'approved' ? 'Đã duyệt' :
+                                   deposit.status === 'pending' ? 'Đang xử lý' :
+                                   deposit.status === 'rejected' ? 'Từ chối' : deposit.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-4 text-gray-400 text-center">
+                      Bạn chưa có giao dịch nạp tiền nào.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'withdraw' && (
+              <div className="space-y-6">
+                <h1 className="text-2xl font-bold">Rút tiền</h1>
+                
+                {/* Form rút tiền */}
+                <div className="bg-gray-800/50 p-6 rounded-lg">
+                  <h3 className="text-lg font-medium mb-4">Tạo yêu cầu rút tiền</h3>
+                  
+                  {/* Thông tin ngân hàng người dùng */}
+                  <div className="mb-6 p-4 border border-gray-700 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-400 mb-2">Thông tin tài khoản nhận tiền</h4>
+                    {user?.bankInfo?.accountNumber ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-gray-400 text-xs">Chủ tài khoản</p>
+                          <p className="font-medium">{user.bankInfo.accountHolder}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400 text-xs">Ngân hàng</p>
+                          <p className="font-medium">{user.bankInfo.bankName}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400 text-xs">Số tài khoản</p>
+                          <p className="font-medium">{user.bankInfo.accountNumber}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-yellow-400 text-sm">
+                        <p>Bạn chưa cập nhật thông tin ngân hàng.</p>
+                        <button 
+                          onClick={() => setActiveTab('bank')} 
+                          className="text-blue-400 hover:underline mt-1"
+                        >
+                          Cập nhật ngay
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <form onSubmit={handleSubmitWithdraw} className="space-y-4 max-w-2xl">
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label htmlFor="withdrawAmount" className="block text-gray-400">Số tiền rút (VNĐ)</label>
+                        <span className="text-gray-400 text-xs">Số dư: {formatCurrency(getBalance(user?.balance))} VNĐ</span>
+                      </div>
+                      <input
+                        id="withdrawAmount"
+                        type="number"
+                        value={withdrawAmount}
+                        onChange={(e) => setWithdrawAmount(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white"
+                        placeholder="Nhập số tiền"
+                        required
+                        min="50000"
+                        max={getBalance(user?.balance)}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="withdrawNote" className="block text-gray-400 mb-1">Ghi chú (không bắt buộc)</label>
+                      <textarea
+                        id="withdrawNote"
+                        value={withdrawNote}
+                        onChange={(e) => setWithdrawNote(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white"
+                        placeholder="Nhập ghi chú nếu cần"
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div className="p-3 bg-yellow-900/20 border border-yellow-800/50 rounded-lg text-sm text-yellow-200">
+                      <p className="flex items-center">
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        Lưu ý: Yêu cầu rút tiền sẽ được xử lý trong vòng 24 giờ làm việc.
+                      </p>
+                    </div>
+                    
+                    <Button 
+                      type="submit" 
+                      className="mt-4 bg-blue-600 hover:bg-blue-700" 
+                      disabled={isSaving || !user?.bankInfo?.accountNumber}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        'Gửi yêu cầu rút tiền'
+                      )}
+                    </Button>
+                  </form>
+                </div>
+                
+                {/* Lịch sử rút tiền */}
+                <div className="bg-gray-800/50 p-6 rounded-lg">
+                  <h3 className="text-lg font-medium mb-4">Lịch sử rút tiền</h3>
+                  {withdrawsLoading ? (
+                    <div className="flex items-center justify-center p-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                    </div>
+                  ) : withdrawsError ? (
+                    <div className="p-4 text-red-400 text-center">
+                      Không thể tải lịch sử rút tiền. Vui lòng thử lại sau.
+                    </div>
+                  ) : withdraws && withdraws.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-gray-400 border-b border-gray-700">
+                            <th className="pb-2 text-left">Mã giao dịch</th>
+                            <th className="pb-2 text-left">Ngày</th>
+                            <th className="pb-2 text-right">Số tiền</th>
+                            <th className="pb-2 text-left">Ghi chú</th>
+                            <th className="pb-2 text-left">Trạng thái</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {withdraws.map((withdraw, index) => (
+                            <tr key={index} className="border-b border-gray-800">
+                              <td className="py-3">{withdraw.id || withdraw._id}</td>
+                              <td className="py-3">{formatDate(withdraw.createdAt)}</td>
+                              <td className="py-3 text-right">{formatCurrency(withdraw.amount)} VNĐ</td>
+                              <td className="py-3">{withdraw.note || '-'}</td>
+                              <td className="py-3">
+                                <span className={`px-2 py-1 rounded-full text-xs ${
+                                  withdraw.status === 'approved' ? 'bg-green-900/30 text-green-400' :
+                                  withdraw.status === 'pending' ? 'bg-yellow-900/30 text-yellow-400' :
+                                  withdraw.status === 'rejected' ? 'bg-red-900/30 text-red-400' :
+                                  'bg-gray-900/30 text-gray-400'
+                                }`}>
+                                  {withdraw.status === 'approved' ? 'Đã duyệt' :
+                                   withdraw.status === 'pending' ? 'Đang xử lý' :
+                                   withdraw.status === 'rejected' ? 'Từ chối' : withdraw.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-4 text-gray-400 text-center">
+                      Bạn chưa có giao dịch rút tiền nào.
+                    </div>
+                  )}
                 </div>
               </div>
             )}
