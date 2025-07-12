@@ -135,6 +135,22 @@ export default function AccountPage() {
     verified: user?.bankInfo?.verified || false
   });
   
+  // Cập nhật form ngân hàng khi thông tin người dùng thay đổi
+  useEffect(() => {
+    if (user) {
+      setBankForm({
+        accountHolder: user?.bankInfo?.accountHolder || user?.bank?.accountHolder || '',
+        name: user?.bankInfo?.name || user?.bank?.name || '',
+        bankName: user?.bankInfo?.bankName || user?.bank?.bankName || '',
+        accountNumber: user?.bankInfo?.accountNumber || user?.bank?.accountNumber || '',
+        accountType: user?.bankInfo?.accountType || 'savings',
+        bankType: user?.bankInfo?.bankType || '',
+        bankCode: user?.bankInfo?.bankCode || '',
+        verified: user?.bankInfo?.verified || false
+      });
+    }
+  }, [user]);
+  
   // State cho việc chỉnh sửa thông tin ngân hàng
   const [isEditingBankInfo, setIsEditingBankInfo] = useState(false);
   const [editBankField, setEditBankField] = useState<string | null>(null);
@@ -538,6 +554,16 @@ const handleBankFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelect
   };
 
 const handleEditBankInfo = (field: string) => {
+    // Không cho phép chỉnh sửa nếu thông tin ngân hàng đã được xác minh
+    if (bankForm.verified) {
+      toast({
+        title: 'Không thể chỉnh sửa',
+        description: 'Thông tin ngân hàng đã được xác minh và không thể chỉnh sửa',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setEditBankField(field);
     setIsEditingBankInfo(true);
   };
@@ -712,13 +738,23 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const handleSubmitBankInfoForm = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Kiểm tra nếu thông tin ngân hàng đã được xác minh thì không cho phép cập nhật
+    if (bankForm.verified) {
+      toast({
+        title: 'Không thể cập nhật',
+        description: 'Thông tin ngân hàng đã được xác minh và không thể chỉnh sửa',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       const token = getToken();
       if (!token) {
         throw new Error('Không tìm thấy token xác thực');
       }
 
-      const response = await fetch('/api/update-bank-info', {
+      const response = await fetch('/api/user/update-bank-info', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -739,6 +775,9 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         description: 'Cập nhật thông tin ngân hàng thành công',
         variant: 'default',
       });
+      
+      // Cập nhật lại thông tin người dùng sau khi lưu thành công
+      await refreshUser();
     } catch (error) {
       console.error('Update bank info error:', error);
       toast({
@@ -1453,7 +1492,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         <div className="flex items-center">
                           <span className="text-gray-400 min-w-[150px]">Tên chủ tài khoản:</span>
                           <p className="flex-1">{bankForm.accountHolder || 'Chưa cập nhật'}</p>
-                          {!bankForm.accountHolder && (
+                          {!bankForm.verified && (
                             <button 
                               onClick={() => handleEditBankInfo('accountHolder')}
                               className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
@@ -1496,7 +1535,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         <div className="flex items-center">
                           <span className="text-gray-400 min-w-[150px]">Loại tài khoản:</span>
                           <p className="flex-1">{bankForm.bankType || 'Chưa cập nhật'}</p>
-                          {!bankForm.bankType && (
+                          {!bankForm.verified && (
                             <button 
                               onClick={() => handleEditBankInfo('bankType')}
                               className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
@@ -1537,7 +1576,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         <div className="flex items-center">
                           <span className="text-gray-400 min-w-[150px]">Tên ngân hàng/Ví điện tử:</span>
                           <p className="flex-1">{bankForm.bankName || 'Chưa cập nhật'}</p>
-                          {!bankForm.bankName && (
+                          {!bankForm.verified && (
                             <button 
                               onClick={() => handleEditBankInfo('bankName')}
                               className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
@@ -1578,7 +1617,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                         <div className="flex items-center">
                           <span className="text-gray-400 min-w-[150px]">Số tài khoản/SĐT:</span>
                           <p className="flex-1">{bankForm.accountNumber || 'Chưa cập nhật'}</p>
-                          {!bankForm.accountNumber && (
+                          {!bankForm.verified && (
                             <button 
                               onClick={() => handleEditBankInfo('accountNumber')}
                               className="ml-2 text-gray-400 hover:text-blue-400 cursor-pointer"
@@ -1592,7 +1631,10 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                       <div className="flex items-center">
                         <span className="text-gray-400 min-w-[150px]">Trạng thái xác minh:</span>
                         {bankForm.verified ? (
-                          <span className="text-green-400">Đã xác minh</span>
+                          <span className="text-green-400 flex items-center">
+                            <CheckCircle className="w-4 h-4 mr-1" /> Đã xác minh
+                            <span className="ml-2 text-xs text-gray-400">(Không thể chỉnh sửa)</span>
+                          </span>
                         ) : (
                           <span className="text-yellow-400">Chưa xác minh</span>
                         )}
