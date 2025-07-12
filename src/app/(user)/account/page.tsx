@@ -137,6 +137,7 @@ export default function AccountPage() {
     confirmPassword: ''
   });
 
+  // Vô hiệu hóa chức năng chỉnh sửa thông tin ngân hàng
   const [isEditingBankInfo, setIsEditingBankInfo] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [passwordError, setPasswordError] = useState('');
@@ -679,16 +680,10 @@ export default function AccountPage() {
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
                   <h1 className="text-2xl font-bold">Thông tin ngân hàng</h1>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsEditingBankInfo(!isEditingBankInfo)}
-                    className="border-gray-600 text-white hover:bg-gray-700"
-                  >
-                    {isEditingBankInfo ? 'Hủy' : 'Chỉnh sửa'}
-                  </Button>
+                  {/* Nút chỉnh sửa đã bị ẩn theo yêu cầu */}
                 </div>
 
-                {isEditingBankInfo ? (
+                {false ? ( // Vô hiệu hóa hoàn toàn form chỉnh sửa
                   <form onSubmit={handleSubmitBankInfo} className="space-y-4 max-w-2xl">
                     <div>
                       <label htmlFor="fullName" className="block text-gray-400 mb-1">Tên chủ tài khoản</label>
