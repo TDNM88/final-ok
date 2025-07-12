@@ -233,10 +233,27 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute = publicRoutes.some(route => 
     pathname === route || pathname.startsWith(`${route}/`)
   );
+  
+  // Kiểm tra xem URL có chứa tham số auth=true không
+  const url = new URL(request.url);
+  const hasAuthParam = url.searchParams.get('auth') === 'true';
+  const noRedirect = url.searchParams.get('redirect') === 'false';
+  
+  // Nếu URL có tham số auth=true, cho phép truy cập mà không cần chuyển hướng
+  if (hasAuthParam && noRedirect) {
+    console.log('Auth param detected, allowing access without token');
+    return response;
+  }
 
   // Nếu không có token, chuyển hướng về trang đăng nhập
   if (!token) {
     console.log('No token found, redirecting to login');
+    
+    // Nếu là trang công khai, không cần chuyển hướng
+    if (isPublicRoute) {
+      return response;
+    }
+    
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('from', pathname);
     

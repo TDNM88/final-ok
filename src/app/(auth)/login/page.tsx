@@ -47,6 +47,7 @@ export default function LoginPage() {
     
     // Clear previous errors and set loading state
     setError("")
+    setShowSuccessLink(false)
     setIsLoading(true)
     
     // Basic client-side validation
@@ -61,25 +62,46 @@ export default function LoginPage() {
       setIsLoading(false)
       return
     }
-
-    console.log('Form submitted, attempting login...')
     
     try {
-      const result = await login(username.trim(), password)
-      console.log('Login result:', result)
-
+      // Call login function from auth context
+      const result = await login(username, password)
+      
       if (result?.success) {
-        console.log('Login successful, checking authentication...')
-        // Small delay to allow state to update
-        await new Promise(resolve => setTimeout(resolve, 100))
+        console.log('Login successful, checking authentication status')
         
-        // Force a refresh of the auth state
+        // Lưu trạng thái đăng nhập vào localStorage
+        try {
+          // Lưu thời gian đăng nhập
+          localStorage.setItem('loginTimestamp', Date.now().toString());
+          localStorage.setItem('isLoggedIn', 'true');
+          
+          // Lưu URL chuyển hướng vào localStorage
+          localStorage.setItem('redirectAfterLogin', callbackUrl);
+          
+          console.log('Login state saved to localStorage');
+        } catch (err) {
+          console.error('Error saving to localStorage:', err);
+        }
+        
+        // Thêm delay ngắn để đảm bảo trạng thái đăng nhập được cập nhật
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
         if (isAuthenticated()) {
           console.log('User is authenticated, redirecting...')
+          
+          // Lấy token từ localStorage nếu có
+          const token = localStorage.getItem('authToken');
+          console.log('Token from localStorage:', token ? 'exists' : 'not found');
+          
           if (isAdmin()) {
             router.push("/admin")
           } else {
-            router.push(callbackUrl)
+            // Chuyển hướng với tham số auth=true để đảm bảo không bị chuyển hướng lại
+            const redirectUrl = new URL(callbackUrl, window.location.origin);
+            redirectUrl.searchParams.set('auth', 'true');
+            redirectUrl.searchParams.set('redirect', 'false');
+            router.push(redirectUrl.toString());
           }
         } else {
           console.error('Login was successful but user is not authenticated')
@@ -117,10 +139,9 @@ export default function LoginPage() {
                 {showSuccessLink && (
                   <>
                     <Link 
-                       href={`https://final-ok.vercel.app/?auth=true&redirect=false&timestamp=${Date.now()}`} 
+                      href={`${window.location.origin}/?auth=true&redirect=false&timestamp=${Date.now()}`} 
                       className="font-medium text-blue-600 hover:text-blue-500"
-                      target="_blank" // Mở trong tab mới để tránh vấn đề với trạng thái đăng nhập
-                      rel="noopener noreferrer" // Bảo mật khi mở tab mới
+                      target="_self" // Mở trong cùng tab để giữ trạng thái đăng nhập
                     >
                       đây
                     </Link>
