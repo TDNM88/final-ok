@@ -468,7 +468,7 @@ export default function AccountPage() {
       headers.append('Pragma', 'no-cache');
       headers.append('Expires', '0');
 
-      const response = await fetch('/api/user/upload-verification', {
+      const response = await fetch('/api/upload-verification', {
         method: 'POST',
         headers: headers,
         body: formData,

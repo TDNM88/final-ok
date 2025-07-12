@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMongoDb } from '@/lib/db';
 import { ObjectId } from 'mongodb';
-import { verifyToken } from '@/lib/auth';
+import { verifyToken, getUserFromRequest } from '@/lib/auth';
 
 export async function GET(request: Request) {
   try {
     // Xác thực người dùng
-    const { userId } = auth();
-    if (!userId) {
+    const user = await getUserFromRequest(request);
+    if (!user || !user.userId || !user.isAuthenticated) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -30,6 +30,7 @@ export async function GET(request: Request) {
     }
 
     // Lấy danh sách nạp tiền của người dùng
+    const userId = user.userId as string;
     const deposits = await db.collection('deposits')
       .find({ user: new ObjectId(userId) })
       .sort({ createdAt: -1 })
@@ -58,8 +59,4 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
-
-function auth(): { userId: any; } {
-  throw new Error('Function not implemented.');
 }
