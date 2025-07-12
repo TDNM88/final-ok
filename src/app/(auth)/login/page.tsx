@@ -81,42 +81,42 @@ export default function LoginPage() {
           
           console.log('Login state saved to localStorage');
           
-          // Đảm bảo token được lưu trong localStorage
+          // Đảm bảo token được lưu trong localStorage và cookie
           const token = localStorage.getItem('token') || localStorage.getItem('authToken');
           console.log('Token in localStorage after login:', token ? 'Found' : 'Not found');
           
-          if (!token) {
-            console.warn('Token not found in localStorage, attempting to retrieve from login result');
-            // Nếu không có token trong localStorage, thử lấy từ kết quả đăng nhập
-            // Sử dụng type assertion để tránh lỗi TypeScript
-            const loginResult = result as { success: boolean; message?: string; token?: string };
-            if (loginResult.token) {
-              console.log('Token found in login result, saving to localStorage');
-              localStorage.setItem('token', loginResult.token);
-              localStorage.setItem('authToken', loginResult.token);
-            }
+          // Sử dụng type assertion để truy cập token từ result
+          const loginResult = result as { success: boolean; message?: string; token?: string };
+          
+          if (loginResult.token) {
+            console.log('Token found in login result, saving to localStorage and cookie');
+            localStorage.setItem('token', loginResult.token);
+            localStorage.setItem('authToken', loginResult.token);
+            
+            // Lưu token vào cookie để server-side có thể đọc
+            document.cookie = `token=${loginResult.token}; path=/; max-age=604800`; // 7 days
           }
+          
+          // Hiển thị thông báo thành công
+          setError("Đăng nhập thành công! Đang chuyển hướng...");
+          
+          // Thêm delay để đảm bảo token được lưu trữ
+          setTimeout(() => {
+            // Kiểm tra token một lần nữa trước khi chuyển hướng
+            const finalToken = localStorage.getItem('token') || localStorage.getItem('authToken');
+            console.log('Final token check before redirect:', finalToken ? 'Found' : 'Not found');
+            
+            if (isAdmin()) {
+              console.log('Admin user detected, redirecting to admin dashboard');
+              window.location.replace('/admin');
+            } else {
+              console.log('Regular user, redirecting to:', callbackUrl);
+              window.location.replace(callbackUrl);
+            }
+          }, 1500);
         } catch (err) {
           console.error('Error saving to localStorage:', err);
         }
-        
-        // Thêm delay ngắn để đảm bảo trạng thái đăng nhập được cập nhật
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Hiển thị thông báo thành công
-        setError("Đăng nhập thành công! Đang chuyển hướng...");
-        
-        // Chuyển hướng sau 1 giây
-        setTimeout(() => {
-          if (isAdmin()) {
-            console.log('Admin user detected, redirecting to admin dashboard');
-            // Sử dụng window.location.href để tải lại trang hoàn toàn
-            window.location.href = '/admin';
-          } else {
-            console.log('Regular user, redirecting to:', callbackUrl);
-            window.location.href = callbackUrl;
-          }
-        }, 1000);
       } else {
         console.error('Login failed:', result?.message || 'No error message')
         setError(result?.message || "Đăng nhập thất bại. Vui lòng thử lại.")

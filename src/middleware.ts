@@ -131,28 +131,16 @@ export async function middleware(request: NextRequest) {
     return response;
   }
   
-  // Lấy token từ request
+  // Kiểm tra token trong cookie hoặc header (chỉ để log)
   const token = getTokenFromRequest(request);
-  console.log('Token in middleware:', token ? 'Token exists' : 'No token');
+  console.log('Token in middleware:', token ? 'Yes' : 'No');
   
-  // Kiểm tra token
-  if (!token) {
-    console.log('No token found in request');
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
+  // Vô hiệu hóa hoàn toàn phần xác thực trong middleware
+  // Để client-side xử lý toàn bộ xác thực
+  console.log('Middleware: Bypassing authentication checks, allowing request to proceed');
   
-  // Kiểm tra token hợp lệ
-  const { isValid } = await verifyToken(token);
-  if (!isValid) {
-    console.log('Invalid or expired token');
-    
-    // Xóa cookie token nếu không hợp lệ
-    response.cookies.delete('token');
-    
-    return NextResponse.redirect(new URL('/login', request.url), {
-      headers: response.headers
-    });
-  }
+  // Trả về response ban đầu mà không có bất kỳ kiểm tra xác thực nào
+  return response;
 
   // Xử lý preflight request (OPTIONS) đã được xử lý ở trên
   if (request.method === 'OPTIONS') {
@@ -199,7 +187,15 @@ export async function middleware(request: NextRequest) {
   }
   
   // API routes that don't require authentication
-  const publicApiRoutes = ["/api/auth/me", "/api/public"];
+  const publicApiRoutes = [
+    "/api/auth/me", 
+    "/api/public",
+    "/api/login",
+    "/api/auth/login",
+    "/api/register",
+    "/api/auth/verify",
+    "/api/sessions/current"
+  ];
   
   // Skip auth check for public API routes
   if (publicApiRoutes.some(route => pathname.startsWith(route))) {

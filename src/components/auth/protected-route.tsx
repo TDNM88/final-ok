@@ -13,29 +13,62 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requiredRole = "user", redirectTo }: ProtectedRouteProps) {
-  const { user, isLoading, isAuthenticated, isAdmin } = useAuth()
+  const { user, isLoading, isAuthenticated, isAdmin, refreshUser } = useAuth()
   const router = useRouter()
+  
+  // Thực hiện kiểm tra xác thực khi component được tải
+  useEffect(() => {
+    // Gọi refreshUser để đảm bảo trạng thái xác thực được cập nhật
+    refreshUser()
+  }, [])
 
   useEffect(() => {
+    // Kiểm tra xem có token trong localStorage không
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    console.log('ProtectedRoute: Token in localStorage:', token ? 'Found' : 'Not found');
+    
     if (!isLoading) {
-      if (!isAuthenticated()) {
-        // Not authenticated, redirect to login
-        const loginUrl = redirectTo ? `/login?callbackUrl=${encodeURIComponent(redirectTo)}` : "/login"
-        router.push(loginUrl)
-        return
+      // Kiểm tra xác thực
+      const authenticated = isAuthenticated();
+      console.log('ProtectedRoute: isAuthenticated result:', authenticated);
+      
+      if (!authenticated) {
+        // Nếu có token nhưng isAuthenticated() trả về false, thử kiểm tra lại
+        if (token) {
+          console.log('ProtectedRoute: Token exists but not authenticated, forcing auth check');
+          // Có token nhưng chưa xác thực, có thể do trạng thái chưa được cập nhật
+          // Đặt một timeout ngắn để đảm bảo trạng thái xác thực được cập nhật
+          setTimeout(() => {
+            if (!isAuthenticated()) {
+              console.log('ProtectedRoute: Still not authenticated after delay, redirecting to login');
+              const loginUrl = redirectTo ? `/login?callbackUrl=${encodeURIComponent(redirectTo)}` : "/login";
+              window.location.href = loginUrl; // Sử dụng window.location thay vì router để tải lại trang hoàn toàn
+            }
+          }, 500);
+          return;
+        } else {
+          // Không có token, chuyển hướng đến trang đăng nhập
+          console.log('ProtectedRoute: No token found, redirecting to login');
+          const loginUrl = redirectTo ? `/login?callbackUrl=${encodeURIComponent(redirectTo)}` : "/login";
+          window.location.href = loginUrl; // Sử dụng window.location thay vì router để tải lại trang hoàn toàn
+          return;
+        }
       }
 
+      // Kiểm tra quyền admin
       if (requiredRole === "admin" && !isAdmin()) {
-        // User is not admin but trying to access admin route
-        router.push("/")
-        return
+        console.log('ProtectedRoute: User is not admin, redirecting to home');
+        window.location.href = "/"; // Sử dụng window.location thay vì router
+        return;
       }
 
       if (requiredRole === "user" && isAdmin()) {
-        // Admin trying to access user route, redirect to admin
-        router.push("/admin")
-        return
+        console.log('ProtectedRoute: Admin accessing user route, redirecting to admin');
+        window.location.href = "/admin"; // Sử dụng window.location thay vì router
+        return;
       }
+      
+      console.log('ProtectedRoute: Authentication successful, rendering protected content');
     }
   }, [isLoading, isAuthenticated, isAdmin, requiredRole, router, redirectTo])
 

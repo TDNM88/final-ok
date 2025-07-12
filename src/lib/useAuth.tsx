@@ -59,24 +59,57 @@ function useAuthStandalone(): AuthContextType {
     checkAuth();
   }, []);
 
+  // Helper functions for token management
+  const getToken = () => {
+    return localStorage.getItem('token') || localStorage.getItem('authToken');
+  };
+
+  const setToken = (token: string) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('authToken', token); // For backward compatibility
+    document.cookie = `token=${token}; path=/; max-age=604800`; // Also set as cookie for 7 days
+  };
+
+  const clearToken = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'; // Clear cookie
+  };
+
+  // Helper for authenticated fetch requests
+  const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
+    const token = getToken();
+    const headers = {
+      ...options.headers,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+
+    return fetch(url, {
+      ...options,
+      credentials: 'include',
+      headers
+    });
+  };
+
   const checkAuth = async () => {
     try {
       console.log('Checking authentication status...');
       
       // Lấy token từ localStorage
-      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-      console.log('Token from localStorage:', token ? 'Found' : 'Not found');
+      const token = getToken();
+      console.log('Token from storage:', token ? 'Found' : 'Not found');
       
-      const res = await fetch('/api/auth/me', {
-        method: 'GET',
-        credentials: 'include', // This ensures cookies are sent with the request
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
-      });
+      if (!token) {
+        console.log('No token found, user is not authenticated');
+        setUser(null);
+        setIsLoading(false);
+        return;
+      }
+      
+      const res = await fetchWithAuth('/api/auth/me');
       
       console.log('Auth check response status:', res.status);
       
@@ -91,10 +124,15 @@ function useAuthStandalone(): AuthContextType {
           setUser(data.user);
         } else {
           console.log('No user in auth response:', data);
+          clearToken(); // Clear invalid token
           setUser(null);
         }
       } else {
         console.log('Auth check failed with status:', res.status);
+        if (res.status === 401) {
+          console.log('Token is invalid or expired, clearing');
+          clearToken(); // Clear invalid token
+        }
         setUser(null);
       }
     } catch (error) {
@@ -180,14 +218,11 @@ function useAuthStandalone(): AuthContextType {
       if (res.ok && data?.success) {
         console.log('Login API call successful, response:', data);
         
-        // Lấy token từ response nếu có
+        // Lưu token vào localStorage và cookie
         const token = data.token;
         if (token) {
-          console.log('Saving token to localStorage');
-          localStorage.setItem('token', token);
-          localStorage.setItem('authToken', token); // Lưu cả hai key để đảm bảo tương thích
-          
-          // Thêm các thông tin bổ sung để hỗ trợ xác thực client-side
+          console.log('Saving token to localStorage and cookie');
+          setToken(token); // Sử dụng hàm setToken mới
           localStorage.setItem('isLoggedIn', 'true');
           localStorage.setItem('loginTimestamp', Date.now().toString());
         } else {
@@ -198,18 +233,9 @@ function useAuthStandalone(): AuthContextType {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         try {
-          // Thử lấy thông tin người dùng
+          // Thử lấy thông tin người dùng sử dụng fetchWithAuth
           console.log('Attempting to fetch current user...');
-          const meResponse = await fetch('/api/auth/me', {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            }
-          });
+          const meResponse = await fetchWithAuth('/api/auth/me');
           
           console.log('Auth/me response status:', meResponse.status);
           
@@ -270,13 +296,21 @@ function useAuthStandalone(): AuthContextType {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include' // This ensures cookies are sent with the request
+      await fetchWithAuth('/api/auth/logout', { 
+        method: 'POST'
       });
+      // Xóa token khỏi localStorage và cookie
+      clearToken();
+      // Xóa các thông tin đăng nhập khác
+      localStorage.removeItem('isLoggedIn');
+      localStorage.removeItem('loginTimestamp');
       setUser(null);
+      console.log('Logout successful, all tokens cleared');
     } catch (error) {
       console.error('Logout error:', error);
+      // Vẫn xóa token ngay cả khi API gặp lỗi
+      clearToken();
+      setUser(null);
     }
   };
 
