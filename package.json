@@ -97,6 +97,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "bcrypt",
+      "esbuild",
       "sharp"
     ]
   }
