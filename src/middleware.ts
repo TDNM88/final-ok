@@ -97,28 +97,37 @@ export async function middleware(request: NextRequest) {
   } else {
     response = NextResponse.next();
   }
-
-  // Bỏ qua xác thực cho các route công khai
-  const publicPaths = ['/api/auth', '/_next', '/favicon.ico'];
-  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
   
-  if (isPublicPath) {
-    return response;
-  }
-
-  // Bỏ qua xác thực cho các route cụ thể
-  const authWhitelist = [
-    '/api/auth',
+  // Danh sách các đường dẫn tĩnh và công khai không cần xác thực
+  const staticPaths = [
     '/_next',
     '/favicon.ico',
+    '/site.webmanifest',
+    '/images',
+    '/icons',
+    '/assets',
+    '/fonts',
+    '/public'
+  ];
+  
+  // Kiểm tra xem có phải là tài nguyên tĩnh không
+  const isStaticPath = staticPaths.some(path => pathname.startsWith(path));
+  const hasFileExtension = pathname.includes('.'); // Bất kỳ tệp có phần mở rộng
+  
+  // Nếu là tài nguyên tĩnh, cho phép truy cập mà không cần xác thực
+  if (isStaticPath || hasFileExtension) {
+    return response;
+  }
+  
+  // Bỏ qua xác thực cho các API route công khai
+  const publicApiPaths = [
+    '/api/auth',
     '/api/health'
   ];
   
-  const shouldSkipAuth = authWhitelist.some(path => 
-    pathname.startsWith(path)
-  );
+  const isPublicApiPath = publicApiPaths.some(path => pathname.startsWith(path));
   
-  if (shouldSkipAuth) {
+  if (isPublicApiPath) {
     return response;
   }
   
@@ -166,10 +175,31 @@ export async function middleware(request: NextRequest) {
   }
 
   // Public routes that don't require authentication
-  const publicRoutes = ["/", "/login", "/register"];
+  const publicRoutes = [
+    "/",                // Trang chủ
+    "/login",           // Trang đăng nhập
+    "/register",        // Trang đăng ký
+    "/auth-check",      // Trang kiểm tra xác thực
+    "/about",           // Trang giới thiệu
+    "/contact",         // Trang liên hệ
+    "/news",            // Trang tin tức
+    "/products",        // Trang sản phẩm
+    "/services"         // Trang dịch vụ
+  ];
+  
+  // Kiểm tra xem đường dẫn hiện tại có phải là trang công khai không
+  const isPublicPage = publicRoutes.some(route => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+  
+  // Nếu là trang chủ hoặc các trang con của trang chủ, luôn cho phép truy cập
+  if (pathname === "/" || pathname === "" || isPublicPage) {
+    console.log('Public page access, allowing without authentication');
+    return response;
+  }
   
   // API routes that don't require authentication
-  const publicApiRoutes = ["/api/auth/me"];
+  const publicApiRoutes = ["/api/auth/me", "/api/public"];
   
   // Skip auth check for public API routes
   if (publicApiRoutes.some(route => pathname.startsWith(route))) {
@@ -242,6 +272,22 @@ export async function middleware(request: NextRequest) {
   // Nếu URL có tham số auth=true, cho phép truy cập mà không cần chuyển hướng
   if (hasAuthParam && noRedirect) {
     console.log('Auth param detected, allowing access without token');
+    return response;
+  }
+
+  // Kiểm tra xem có phải là tài nguyên tĩnh không
+  const isStaticResource = (
+    pathname.includes('.') || // Bất kỳ tệp có phần mở rộng
+    pathname.startsWith('/images/') ||
+    pathname.startsWith('/icons/') ||
+    pathname.startsWith('/assets/') ||
+    pathname.startsWith('/fonts/') ||
+    pathname.startsWith('/public/') ||
+    pathname.startsWith('/_next/')
+  );
+  
+  // Nếu là tài nguyên tĩnh, cho phép truy cập mà không cần xác thực
+  if (isStaticResource) {
     return response;
   }
 

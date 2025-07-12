@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 
 // Import the React global initializer
@@ -23,7 +23,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [showSuccessLink, setShowSuccessLink] = useState(false)
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -47,7 +46,6 @@ export default function LoginPage() {
     
     // Clear previous errors and set loading state
     setError("")
-    setShowSuccessLink(false)
     setIsLoading(true)
     
     // Basic client-side validation
@@ -62,13 +60,15 @@ export default function LoginPage() {
       setIsLoading(false)
       return
     }
+
+    console.log('Form submitted, attempting login...')
     
     try {
-      // Call login function from auth context
-      const result = await login(username, password)
-      
+      const result = await login(username.trim(), password)
+      console.log('Login result:', result)
+
       if (result?.success) {
-        console.log('Login successful, checking authentication status')
+        console.log('Login successful, processing...');
         
         // Lưu trạng thái đăng nhập vào localStorage
         try {
@@ -85,33 +85,25 @@ export default function LoginPage() {
         }
         
         // Thêm delay ngắn để đảm bảo trạng thái đăng nhập được cập nhật
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        if (isAuthenticated()) {
-          console.log('User is authenticated, redirecting...')
-          
-          // Lấy token từ localStorage nếu có
-          const token = localStorage.getItem('authToken');
-          console.log('Token from localStorage:', token ? 'exists' : 'not found');
-          
-          if (isAdmin()) {
-            router.push("/admin")
-          } else {
-            // Chuyển hướng với tham số auth=true để đảm bảo không bị chuyển hướng lại
-            const redirectUrl = new URL(callbackUrl, window.location.origin);
-            redirectUrl.searchParams.set('auth', 'true');
-            redirectUrl.searchParams.set('redirect', 'false');
-            router.push(redirectUrl.toString());
-          }
-        } else {
-          console.error('Login was successful but user is not authenticated')
-          // Sử dụng React Fragment để hiển thị thông báo với Link có thể nhấp vào được
-          setError(
-            "Đăng nhập thành công! Nếu không chuyển hướng, vui lòng nhấn "
-          )
-          // Đặt showSuccessLink để hiển thị link
-          setShowSuccessLink(true)
-        }
+        // Chuyển hướng trực tiếp mà không cần kiểm tra isAuthenticated()
+        // Vì đăng nhập đã thành công, chúng ta có thể chuyển hướng người dùng
+        console.log('Redirecting after successful login');
+        
+        // Chuyển hướng với tham số auth=true để đảm bảo không bị chuyển hướng lại
+        const redirectUrl = new URL(callbackUrl, window.location.origin);
+        redirectUrl.searchParams.set('auth', 'true');
+        redirectUrl.searchParams.set('redirect', 'false');
+        redirectUrl.searchParams.set('timestamp', Date.now().toString());
+        
+        // Hiển thị thông báo thành công và link
+        setError("Đăng nhập thành công! Đang chuyển hướng...");
+        
+        // Chuyển hướng sau 1 giây
+        setTimeout(() => {
+          window.location.href = redirectUrl.toString();
+        }, 1000);
       } else {
         console.error('Login failed:', result?.message || 'No error message')
         setError(result?.message || "Đăng nhập thất bại. Vui lòng thử lại.")
@@ -133,19 +125,13 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <Alert variant={showSuccessLink ? "default" : "destructive"} className="mb-4">
-              <AlertDescription>
+            <Alert variant={error.includes('Đăng nhập thành công') ? "default" : "destructive"} className="mb-4">
+              <AlertDescription className="flex items-center">
                 {error}
-                {showSuccessLink && (
-                  <>
-                    <Link 
-                      href={`${window.location.origin}/?auth=true&redirect=false&timestamp=${Date.now()}`} 
-                      className="font-medium text-blue-600 hover:text-blue-500"
-                      target="_self" // Mở trong cùng tab để giữ trạng thái đăng nhập
-                    >
-                      đây
-                    </Link>
-                  </>
+                {error.includes('Đăng nhập thành công') && (
+                  <div className="ml-2">
+                    <Loader2 className="h-4 w-4 animate-spin inline-block" />
+                  </div>
                 )}
               </AlertDescription>
             </Alert>
