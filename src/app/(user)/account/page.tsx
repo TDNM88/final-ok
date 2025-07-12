@@ -589,6 +589,22 @@ const handleSaveBankInfo = async () => {
         throw new Error('Không tìm thấy token xác thực');
       }
       
+      // Log token for debugging (only show first few characters)
+      console.log('Using token for bank info update:', token.substring(0, 10) + '...');
+      
+      // Ensure we have all required fields
+      if (!bankForm.accountHolder || !bankForm.bankName || !bankForm.accountNumber) {
+        throw new Error('Vui lòng điền đầy đủ thông tin ngân hàng');
+      }
+      
+      // Prepare data to send
+      const dataToSend = {
+        ...bankForm,
+        editedField: editBankField
+      };
+      
+      console.log('Sending bank info data:', dataToSend);
+      
       // Gửi toàn bộ thông tin trong form lên server thay vì chỉ gửi một trường
       // Đồng thời vẫn giữ lại trường đang chỉnh sửa để server biết trường nào đã được thay đổi
       const response = await fetch('/api/update-bank-info', {
@@ -597,10 +613,7 @@ const handleSaveBankInfo = async () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          ...bankForm,
-          editedField: editBankField // Thêm trường này để server biết trường nào đã được chỉnh sửa
-        })
+        body: JSON.stringify(dataToSend)
       });
       
       const data = await response.json();
