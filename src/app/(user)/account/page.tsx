@@ -903,6 +903,7 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       return;
     }
 
+    console.log('Starting deposit bill upload...', depositBill.name, depositBill.type, depositBill.size);
     setIsUploadingBill(true);
 
     try {
@@ -911,28 +912,40 @@ const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         throw new Error('Không tìm thấy token xác thực');
       }
 
+      // Tạo FormData và thêm file
       const formData = new FormData();
       formData.append('file', depositBill);
+      console.log('FormData created with file:', depositBill.name);
 
+      // Gửi request không có header Content-Type để browser tự động thêm boundary cho multipart/form-data
       const response = await fetch('/api/upload-deposit-bill', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
         },
         body: formData,
-        credentials: 'include',
-        cache: 'no-store'
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Có lỗi xảy ra khi tải lên ảnh');
+      console.log('Upload response status:', response.status);
+
+      // Xử lý response
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse response as JSON:', e);
+        throw new Error('Phản hồi từ server không hợp lệ');
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Có lỗi xảy ra khi tải lên ảnh');
+      }
+
+      // Cập nhật URL ảnh bill
+      console.log('Upload successful, URL:', data.url);
       setDepositBillUrl(data.url);
 
       toast({

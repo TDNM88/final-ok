@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
-import { uploadFile } from '@/lib/fileUpload';
 import { getMongoDb } from '@/lib/db';
 import { ObjectId } from 'mongodb';
 
@@ -14,6 +13,7 @@ export const config = {
 
 // API xử lý upload hóa đơn nạp tiền
 export async function POST(req: NextRequest) {
+  console.log('Upload deposit bill API called');
   try {
     // Xác thực người dùng
     const token = req.headers.get('authorization')?.split(' ')[1];
@@ -27,10 +27,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Xử lý form data
+    console.log('Processing form data...');
     const formData = await req.formData();
+    console.log('Form data keys:', Array.from(formData.keys()));
     const file = formData.get('file') as File;
-
+    
     if (!file) {
+      console.error('No file found in form data');
       return NextResponse.json({ message: 'Không tìm thấy file' }, { status: 400 });
     }
 
@@ -46,8 +49,19 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      // Upload file lên storage
-      const fileUrl = await uploadFile(file);
+      console.log('File received:', file.name, 'Type:', file.type, 'Size:', file.size);
+      
+      // Tạo ID duy nhất cho file
+      const fileId = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+      
+      // Chuyển đổi file thành base64
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const base64Data = buffer.toString('base64');
+      
+      // Tạo data URL
+      const fileUrl = `data:${file.type};base64,${base64Data}`;
+      console.log('Created data URL (truncated):', fileUrl.substring(0, 50) + '...');
 
       // Lấy kết nối MongoDB
       const db = await getMongoDb();
