@@ -343,16 +343,16 @@ export default function WithdrawPage() {
                       <>
                         {/* Hiển thị thông tin ngân hàng dạng text khi đã xác minh hoặc đang chờ xác minh */}
                         <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-                          <p className="text-gray-400 text-sm mb-1">Ngân hàng</p>
-                          <p className="text-white font-medium">{bankName}</p>
+                          <div className="text-gray-400 text-sm mb-1" aria-readonly="true">Ngân hàng</div>
+                          <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{bankName}</div>
                         </div>
                         <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-                          <p className="text-gray-400 text-sm mb-1">Số tài khoản</p>
-                          <p className="text-white font-medium">{accountNumber}</p>
+                          <div className="text-gray-400 text-sm mb-1" aria-readonly="true">Số tài khoản</div>
+                          <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{accountNumber}</div>
                         </div>
                         <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-                          <p className="text-gray-400 text-sm mb-1">Chủ tài khoản</p>
-                          <p className="text-white font-medium">{accountHolder}</p>
+                          <div className="text-gray-400 text-sm mb-1" aria-readonly="true">Chủ tài khoản</div>
+                          <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{accountHolder}</div>
                         </div>
                       </>
                     ) : (

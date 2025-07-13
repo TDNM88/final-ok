@@ -209,7 +209,7 @@ export function BankInfoSection() {
               * Họ tên
             </label>
             <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-              <p className="text-white font-medium">{formData.fullName}</p>
+              <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{formData.fullName}</div>
             </div>
           </div>
           
@@ -218,7 +218,7 @@ export function BankInfoSection() {
               * Loại
             </label>
             <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-              <p className="text-white font-medium">{formData.bankType}</p>
+              <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{formData.bankType}</div>
             </div>
           </div>
           
@@ -227,7 +227,7 @@ export function BankInfoSection() {
               * Ngân hàng
             </label>
             <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-              <p className="text-white font-medium">{formData.bankName}</p>
+              <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{formData.bankName}</div>
             </div>
           </div>
           
@@ -236,7 +236,7 @@ export function BankInfoSection() {
               * Số tài khoản
             </label>
             <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-              <p className="text-white font-medium">{formData.accountNumber}</p>
+              <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{formData.accountNumber}</div>
             </div>
           </div>
           
