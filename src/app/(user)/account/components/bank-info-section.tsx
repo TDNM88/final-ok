@@ -120,6 +120,21 @@ export function BankInfoSection() {
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
   
+  // Toggle edit mode
+  const toggleEditMode = () => {
+    // Don't allow editing if verified or pending verification
+    if (formData.verified || formData.pendingVerification) {
+      toast({
+        title: "Không thể chỉnh sửa",
+        description: "Thông tin ngân hàng đã được xác minh hoặc đang chờ xác minh và không thể thay đổi",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsEditMode(!isEditMode);
+  };
+  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -132,10 +147,10 @@ export function BankInfoSection() {
     e.preventDefault();
     
     // Kiểm tra nếu thông tin đã được xác nhận hoặc đang chờ xác minh thì không cho phép thay đổi
-    if (isVerified || isPending) {
+    if (formData.verified || formData.pendingVerification) {
       toast({
         title: "Không thể thay đổi",
-        description: "Thông tin ngân hàng đã được xác nhận hoặc đang chờ xác minh, không thể thay đổi",
+        description: "Thông tin ngân hàng đã được xác minh hoặc đang chờ xác minh, không thể thay đổi",
         variant: "destructive"
       });
       return;
@@ -151,9 +166,24 @@ export function BankInfoSection() {
     }
     
     setIsSubmitting(true);
-    setIsSaving(true); // Bắt đầu trạng thái loading
     
     try {
+      // Lưu thông tin vào localStorage trước
+      if (typeof window !== 'undefined') {
+        try {
+          const bankInfoToSave = {
+            ...formData,
+            userId: user?._id || user?.id || '',
+            pendingVerification: true,
+            submittedAt: new Date().toISOString()
+          };
+          localStorage.setItem('userBankInfo', JSON.stringify(bankInfoToSave));
+        } catch (error) {
+          console.error('Error saving bank info to localStorage:', error);
+        }
+      }
+      
+      // Gửi lên server
       const response = await fetch('/api/update-bank-info', {
         method: 'POST',
         headers: {
@@ -161,82 +191,107 @@ export function BankInfoSection() {
           'Authorization': `Bearer ${getToken()}`
         },
         body: JSON.stringify({
-          accountHolder: formData.fullName,
-          bankName: formData.bankName,
-          accountNumber: formData.accountNumber
+          bankInfo: {
+            fullName: formData.fullName,
+            bankType: formData.bankType,
+            bankName: formData.bankName,
+            accountNumber: formData.accountNumber,
+            pendingVerification: true,
+            submittedAt: new Date().toISOString()
+          }
         })
       });
       
-      const data = await response.json();
-      
       if (!response.ok) {
-        throw new Error(data.message || 'Đã xảy ra lỗi');
+        throw new Error(`API error: ${response.status}`);
       }
       
-      // Lưu thông tin vào localStorage
-      if (typeof window !== 'undefined' && user) {
-        localStorage.setItem('userBankInfo', JSON.stringify({
-          userId: user._id || user.id || '',
-          bankName: formData.bankName,
-          accountNumber: formData.accountNumber,
-          accountHolder: formData.fullName,
-          pendingVerification: true,
-          savedAt: new Date().toISOString()
-        }));
-      }
+      const data = await response.json();
       
       toast({
         title: "Thành công",
         description: "Thông tin ngân hàng đã được cập nhật và đang chờ xác minh"
       });
       
-      setFormData(prev => ({
-        ...prev,
-        pendingVerification: true
-      }));
-      
+      // Cập nhật lại thông tin user
       refreshUser();
+      setIsEditMode(false);
       
     } catch (error) {
+      console.error('Error updating bank info:', error);
       toast({
         title: "Lỗi",
-        description: (error as Error).message || "Đã xảy ra lỗi khi cập nhật thông tin ngân hàng",
+        description: "Không thể cập nhật thông tin ngân hàng. Vui lòng thử lại sau.",
         variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
-      setIsSaving(false); // Kết thúc trạng thái loading
     }
   };
   
-  // Check if bank info is verified
-  const isVerified = user?.bankInfo?.verified || false;
-  const isPending = user?.bankInfo?.pendingVerification || false;
+  // Xác định trạng thái xác minh
+  const isVerified = formData.verified || user?.bankInfo?.verified || false;
+  const isPending = (formData.pendingVerification || user?.bankInfo?.pendingVerification || false) && !isVerified;
   
-  // Kiểm tra xem đã có thông tin ngân hàng chưa
+  // Kiểm tra xem có thông tin ngân hàng hay không
   const hasBankInfo = !!(formData.bankName && formData.accountNumber);
   
   // Thêm thông báo cho người dùng khi thông tin đã được xác minh hoặc đang chờ xác minh
   const getBankInfoStatus = () => {
     if (isVerified) {
       return (
-        <div className="mb-4 p-3 bg-green-900/20 border border-green-900/30 rounded-md">
-          <p className="flex items-center text-green-400">
-            <CheckCircle className="w-4 h-4 mr-2" /> 
-            Thông tin ngân hàng đã được xác minh. Bạn không thể thay đổi thông tin này.
-          </p>
-        </div>
-      );
-    } else if (isPending) {
-      return (
-        <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-900/30 rounded-md">
-          <p className="flex items-center text-yellow-400">
-            <AlertTriangle className="w-4 h-4 mr-2" /> 
-            Thông tin ngân hàng đang chờ xác minh. Bạn không thể thay đổi thông tin này.
-          </p>
+        <div className="bg-gradient-to-r from-green-900/20 to-green-800/20 p-4 rounded-xl border border-green-700/30 mt-6">
+          <div className="flex items-start gap-3">
+            <div className="bg-green-500/20 p-2 rounded-full">
+              <ShieldCheck className="h-5 w-5 text-green-500" />
+            </div>
+            <div>
+              <h3 className="font-medium text-green-400">Thông tin đã được xác minh</h3>
+              <p className="text-sm text-green-400/70 mt-1">Thông tin ngân hàng của bạn đã được xác minh và không thể chỉnh sửa.</p>
+              {formData.verifiedAt && (
+                <p className="text-xs text-green-400/50 mt-2">Xác minh vào: {formatDate(formData.verifiedAt)}</p>
+              )}
+            </div>
+          </div>
         </div>
       );
     }
+    
+    if (isPending) {
+      return (
+        <div className="bg-gradient-to-r from-amber-900/20 to-amber-800/20 p-4 rounded-xl border border-amber-700/30 mt-6">
+          <div className="flex items-start gap-3">
+            <div className="bg-amber-500/20 p-2 rounded-full">
+              <ShieldAlert className="h-5 w-5 text-amber-500" />
+            </div>
+            <div>
+              <h3 className="font-medium text-amber-400">Đang chờ xác minh</h3>
+              <p className="text-sm text-amber-400/70 mt-1">Thông tin ngân hàng của bạn đang được xem xét và không thể chỉnh sửa trong thời gian này.</p>
+              {formData.submittedAt && (
+                <p className="text-xs text-amber-400/50 mt-2">Gửi yêu cầu vào: {formatDate(formData.submittedAt)}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    if (!hasBankInfo) {
+      return (
+        <div className="bg-gradient-to-r from-blue-900/20 to-blue-800/20 p-4 rounded-xl border border-blue-700/30 mt-6">
+          <div className="flex items-start gap-3">
+            <div className="bg-blue-500/20 p-2 rounded-full">
+              <Info className="h-5 w-5 text-blue-500" />
+            </div>
+            <div>
+              <h3 className="font-medium text-blue-400">Thêm thông tin ngân hàng</h3>
+              <p className="text-sm text-blue-400/70 mt-1">Vui lòng cung cấp thông tin ngân hàng để có thể rút tiền và nhận thanh toán.</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
     return null;
   };
 
