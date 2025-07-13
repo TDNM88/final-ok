@@ -184,15 +184,6 @@ export function BankInfoSection() {
       return;
     }
     
-    // Kiểm tra nếu thông tin đã được xác minh hoặc đang chờ xác minh
-    if (formData.verified || formData.pendingVerification) {
-      toast({
-        title: "Không thể cập nhật",
-        description: "Thông tin ngân hàng đã được xác minh hoặc đang chờ xác minh",
-        variant: "destructive"
-      });
-      return;
-    }
     
     setIsSubmitting(true);
     
@@ -330,9 +321,7 @@ export function BankInfoSection() {
               <Building className="h-5 w-5" />
               Thông tin ngân hàng
             </h3>
-            <span className={`text-xs px-3 py-1 rounded-full
-              ${isVerified ? 'bg-green-500/20 text-green-400' : 
-                'bg-amber-500/20 text-amber-400'}`}>
+            <span className={`text-xs px-3 py-1 rounded-full ${isVerified ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'}`}>
               {isVerified ? 'Đã xác minh' : 'Đang xác minh'}
             </span>
           </div>
@@ -363,7 +352,7 @@ export function BankInfoSection() {
               <div className="flex items-center gap-3">
                 <Clock className="h-5 w-5 text-gray-400" />
                 <div>
-                  <p className="text-sm text-gray-400">Ngày gửi yêu cầu</p>
+                  <p className="text-sm text-gray-400">Ngày gửi</p>
                   <p className="font-medium">{formatDate(formData.submittedAt)}</p>
                 </div>
               </div>
@@ -424,6 +413,13 @@ export function BankInfoSection() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 autoComplete="off"
+                maxLength={20}
+                onKeyPress={(e) => {
+                  // Chỉ cho phép nhập số
+                  if (!/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
               />
             </div>
             <div className="flex gap-3 pt-2">
