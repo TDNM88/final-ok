@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Menu, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { PersonalInfoSection } from './components/personal-info-section';
+
 import { BankInfoSection } from './components/bank-info-section';
 import { AccountOverviewSection } from './components/account-overview-section';
 import { IdentityVerificationSection } from './components/identity-verification-section';
@@ -164,10 +164,6 @@ export default function AccountPage() {
               <div className="space-y-6">
                 <Suspense fallback={<div className="p-4 text-center">Đang tải thông tin tài khoản...</div>}>
                   <AccountOverviewSection />
-                </Suspense>
-
-                <Suspense fallback={<div className="p-4 text-center">Đang tải thông tin cá nhân...</div>}>
-                  <PersonalInfoSection />
                 </Suspense>
               </div>
             )}
