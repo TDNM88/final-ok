@@ -12,8 +12,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import useSWR from 'swr';
 import { Upload, Copy, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
+// Định nghĩa kiểu cho User để tránh lỗi TypeScript
+interface BankInfo {
+  bankName?: string;
+  accountNumber?: string;
+  accountHolder?: string;
+  verified?: boolean;
+}
+
+interface User {
+  _id: string;
+  id?: string;
+  username: string;
+  email: string;
+  balance: number;
+  bankInfo?: BankInfo;
+}
+
+interface AuthContextType {
+  user: User | null;
+  isLoading: boolean;
+  logout: () => Promise<void>;
+  isAuthenticated: () => boolean;
+}
+
 export default function DepositPage() {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth() as AuthContextType;
   const [authToken, setAuthToken] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
@@ -23,6 +47,10 @@ export default function DepositPage() {
   const [billUrl, setBillUrl] = useState<string | null>(null);
   const [selectedBank, setSelectedBank] = useState('');
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [savedData, setSavedData] = useState<{
+    amount: string;
+    selectedBank: string;
+  } | null>(null);
 
   // Lấy token từ localStorage
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('authToken') : null;
@@ -59,6 +87,24 @@ export default function DepositPage() {
     if (!isLoading && !isAuthenticated()) {
       toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng đăng nhập' });
       router.push('/login');
+      return;
+    }
+    
+    // Lấy dữ liệu đã lưu từ localStorage
+    if (typeof window !== 'undefined') {
+      const savedDepositData = localStorage.getItem('depositData');
+      if (savedDepositData) {
+        try {
+          const parsedData = JSON.parse(savedDepositData);
+          if (parsedData.userId === user?._id || parsedData.userId === user?.id) {
+            setSavedData(parsedData);
+            setAmount(parsedData.amount || '');
+            setSelectedBank(parsedData.selectedBank || '');
+          }
+        } catch (error) {
+          console.error('Lỗi khi đọc dữ liệu đã lưu:', error);
+        }
+      }
     }
   }, [user, isLoading, isAuthenticated, router, toast]);
 
@@ -107,6 +153,18 @@ export default function DepositPage() {
     }
   };
 
+  // Lưu thông tin người dùng đã nhập
+  const saveUserInputData = () => {
+    if (user && amount && selectedBank) {
+      const dataToSave = {
+        userId: user._id || user.id,
+        amount,
+        selectedBank
+      };
+      localStorage.setItem('depositData', JSON.stringify(dataToSave));
+    }
+  };
+
   const handleSubmit = async () => {
     if (!amount || !bill || !selectedBank || !isConfirmed) {
       toast({ 
@@ -116,6 +174,9 @@ export default function DepositPage() {
       });
       return;
     }
+    
+    // Lưu thông tin người dùng đã nhập
+    saveUserInputData();
 
     if (settings && Number(amount) < settings.minDeposit) {
       toast({ variant: 'destructive', title: 'Lỗi', description: `Số tiền nạp tối thiểu là ${settings.minDeposit.toLocaleString()} đ` });
@@ -175,6 +236,32 @@ export default function DepositPage() {
             <CardTitle className="text-2xl font-semibold text-white">Thông tin ngân hàng nền tảng</CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-4">
+            {/* Phần nhập số tiền */}
+            <div className="mb-6">
+              <Label htmlFor="amount" className="text-white mb-2 block font-medium">Số tiền nạp</Label>
+              <div className="relative">
+                <Input
+                  id="amount"
+                  type="number"
+                  value={amount}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                  }}
+                  placeholder="Nhập số tiền muốn nạp"
+                  className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                  required
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                  VND
+                </div>
+              </div>
+              {settings && (
+                <p className="text-sm text-gray-400 mt-1">
+                  Số tiền nạp tối thiểu: {settings.deposits?.minAmount?.toLocaleString() || '100,000'} VND
+                </p>
+              )}
+            </div>
+
             {!platformBanks ? (
               <div className="text-center py-4 text-gray-400">Đang tải thông tin ngân hàng...</div>
             ) : platformBanksError ? (
@@ -182,6 +269,37 @@ export default function DepositPage() {
             ) : platformBanks.banks && platformBanks.banks.length > 0 ? (
               <div className="space-y-4">
                 <p className="text-yellow-400 font-medium">Vui lòng chuyển khoản vào một trong các tài khoản sau:</p>
+                {/* Chọn ngân hàng */}
+                <div className="mb-4">
+                  <Label htmlFor="bank-select" className="text-white mb-2 block font-medium">Chọn ngân hàng</Label>
+                  <Select 
+                    value={selectedBank} 
+                    onValueChange={(value) => {
+                      setSelectedBank(value);
+                      // Lưu thông tin khi người dùng chọn ngân hàng
+                      if (user && amount) {
+                        const dataToSave = {
+                          userId: user._id || user.id,
+                          amount,
+                          selectedBank: value
+                        };
+                        localStorage.setItem('depositData', JSON.stringify(dataToSave));
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="bg-gray-700 text-white border-gray-600">
+                      <SelectValue placeholder="Chọn ngân hàng" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-800 text-white border-gray-700">
+                      {platformBanks.banks.map((bank: any, index: number) => (
+                        <SelectItem key={index} value={bank.bankName} className="focus:bg-gray-700 focus:text-white">
+                          {bank.bankName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {platformBanks.banks.map((bank: any, index: number) => (
                     <div key={index} className="bg-gray-700 p-4 rounded-lg">
