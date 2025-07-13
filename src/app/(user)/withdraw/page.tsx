@@ -327,6 +327,7 @@ export default function WithdrawPage() {
                     Thông tin ngân hàng
                     {savedBankInfo?.verified && (
                       <span className="ml-2 text-xs bg-green-500/20 text-green-500 px-2 py-1 rounded-full flex items-center">
+       
                         <CheckCircle className="h-3 w-3 mr-1" /> Đã xác minh
                       </span>
                     )}

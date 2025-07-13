@@ -5,7 +5,17 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { Menu, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { 
+  Menu, 
+  Loader2, 
+  User, 
+  CreditCard, 
+  ShieldCheck, 
+  KeyRound,
+  LogOut,
+  ChevronRight,
+  Bell
+} from 'lucide-react';
 
 import { BankInfoSection } from './components/bank-info-section';
 import { AccountOverviewSection } from './components/account-overview-section';
@@ -86,8 +96,11 @@ export default function AccountPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-gray-900 to-gray-800">
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-4" />
+          <p className="text-blue-400 animate-pulse">Đang tải thông tin tài khoản...</p>
+        </div>
       </div>
     );
   }
@@ -98,104 +111,219 @@ export default function AccountPage() {
   }
 
   const isVerified = verificationStatus.verified;
+  const balance = getBalance(user?.balance);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white pb-20">
+      {/* Header with user info */}
+      <div className="bg-gradient-to-r from-blue-900/50 to-indigo-900/50 border-b border-blue-800/30">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold shadow-lg">
+                {user?.username?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">{user?.username || 'User'}</h1>
+                <p className="text-blue-300 text-sm">{user?.email || 'No email'}</p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end">
+              <div className="text-sm text-blue-300">Số dư khả dụng</div>
+              <div className="text-2xl font-bold">{balance.toLocaleString()} VND</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar */}
-          <div className="md:w-1/4">
-            <div className="bg-gray-800/50 rounded-lg p-6 sticky top-24">
-              <div className="flex justify-between items-center md:hidden mb-4">
-                <h2 className="text-xl font-bold">Tài khoản</h2>
+          <div className="lg:w-1/4 w-full">
+            <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl shadow-xl border border-gray-700/50 overflow-hidden sticky top-24">
+              <div className="flex justify-between items-center p-4 border-b border-gray-700/50 lg:hidden">
+                <h2 className="text-lg font-bold">Tài khoản</h2>
                 <button
                   onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-gray-700/50 transition-colors"
                 >
-                  <Menu className="h-6 w-6" />
+                  <Menu className="h-5 w-5" />
                 </button>
               </div>
 
-              <nav className={`space-y-2 ${isMobileMenuOpen ? 'block' : 'hidden md:block'}`}>
-                <Button
-                  variant={activeTab === 'overview' ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => handleTabChange('overview')}
-                >
-                  Tổng quan
-                </Button>
-                <Button
-                  variant={activeTab === 'bank' ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => handleTabChange('bank')}
-                >
-                  Thông tin ngân hàng
-                </Button>
-                <Button
-                  variant={activeTab === 'verify' ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => handleTabChange('verify')}
-                >
-                  Xác minh danh tính
-                </Button>
-                <Button
-                  variant={activeTab === 'password' ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => handleTabChange('password')}
-                >
-                  Đổi mật khẩu
-                </Button>
+              <div className="hidden lg:block p-4 border-b border-gray-700/50">
+                <h2 className="text-lg font-bold">Quản lý tài khoản</h2>
+                <p className="text-sm text-gray-400">Cập nhật thông tin và bảo mật</p>
+              </div>
 
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                  onClick={handleLogout}
-                >
-                  Đăng xuất
-                </Button>
+              <nav className={`${isMobileMenuOpen ? 'block' : 'hidden lg:block'}`}>
+                <div className="p-3 space-y-1">
+                  <Button
+                    variant={activeTab === 'overview' ? 'default' : 'ghost'}
+                    className={`w-full justify-start gap-3 py-5 ${activeTab === 'overview' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800/70'}`}
+                    onClick={() => handleTabChange('overview')}
+                  >
+                    <User className="h-5 w-5" />
+                    <span>Tổng quan tài khoản</span>
+                    {activeTab === 'overview' && <ChevronRight className="h-4 w-4 ml-auto" />}
+                  </Button>
+                  
+                  <Button
+                    variant={activeTab === 'bank' ? 'default' : 'ghost'}
+                    className={`w-full justify-start gap-3 py-5 ${activeTab === 'bank' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800/70'}`}
+                    onClick={() => handleTabChange('bank')}
+                  >
+                    <CreditCard className="h-5 w-5" />
+                    <span>Thông tin ngân hàng</span>
+                    {user?.bankInfo?.verified && (
+                      <div className="ml-auto bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full flex items-center">
+                        <ShieldCheck className="h-3 w-3 mr-1" />
+                        Đã xác minh
+                      </div>
+                    )}
+                    {!user?.bankInfo?.verified && activeTab === 'bank' && <ChevronRight className="h-4 w-4 ml-auto" />}
+                  </Button>
+                  
+                  <Button
+                    variant={activeTab === 'verify' ? 'default' : 'ghost'}
+                    className={`w-full justify-start gap-3 py-5 ${activeTab === 'verify' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800/70'}`}
+                    onClick={() => handleTabChange('verify')}
+                  >
+                    <ShieldCheck className="h-5 w-5" />
+                    <span>Xác minh danh tính</span>
+                    {isVerified && (
+                      <div className="ml-auto bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full flex items-center">
+                        <ShieldCheck className="h-3 w-3 mr-1" />
+                        Đã xác minh
+                      </div>
+                    )}
+                    {!isVerified && activeTab === 'verify' && <ChevronRight className="h-4 w-4 ml-auto" />}
+                  </Button>
+                  
+                  <Button
+                    variant={activeTab === 'password' ? 'default' : 'ghost'}
+                    className={`w-full justify-start gap-3 py-5 ${activeTab === 'password' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800/70'}`}
+                    onClick={() => handleTabChange('password')}
+                  >
+                    <KeyRound className="h-5 w-5" />
+                    <span>Đổi mật khẩu</span>
+                    {activeTab === 'password' && <ChevronRight className="h-4 w-4 ml-auto" />}
+                  </Button>
+                </div>
+                
+                <div className="border-t border-gray-700/50 p-3">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3 py-5 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-5 w-5" />
+                    <span>Đăng xuất</span>
+                  </Button>
+                </div>
               </nav>
             </div>
+            
+            {/* Verification status card */}
+            {!isVerified && (
+              <div className="mt-6 bg-gradient-to-br from-amber-900/30 to-amber-800/20 rounded-xl border border-amber-700/30 p-4 hidden lg:block">
+                <div className="flex items-start gap-3">
+                  <div className="bg-amber-500/20 p-2 rounded-full">
+                    <Bell className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-amber-300">Xác minh tài khoản</h3>
+                    <p className="text-sm text-amber-200/70 mt-1">Xác minh danh tính của bạn để mở khóa tất cả tính năng và nâng cao giới hạn giao dịch.</p>
+                    <Button 
+                      className="mt-3 bg-amber-600 hover:bg-amber-700 text-white" 
+                      size="sm"
+                      onClick={() => handleTabChange('verify')}
+                    >
+                      Xác minh ngay
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Main content */}
-          <div className="md:w-3/4">
+          <div className="lg:w-3/4 w-full">
             {/* Overview Tab */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
-                <Suspense fallback={<div className="p-4 text-center">Đang tải thông tin tài khoản...</div>}>
-                  <AccountOverviewSection />
-                </Suspense>
+                <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl shadow-xl border border-gray-700/50 overflow-hidden">
+                  <div className="border-b border-gray-700/50 p-6">
+                    <h2 className="text-xl font-bold">Tổng quan tài khoản</h2>
+                    <p className="text-gray-400 text-sm mt-1">Xem thông tin tài khoản và số dư của bạn</p>
+                  </div>
+                  <Suspense fallback={
+                    <div className="p-8 flex justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    </div>
+                  }>
+                    <AccountOverviewSection />
+                  </Suspense>
+                </div>
               </div>
             )}
 
             {/* Bank Info Tab */}
             {activeTab === 'bank' && (
-              <div className="bg-gray-800/50 p-6 rounded-lg">
-                <Suspense fallback={<div className="p-4 text-center">Đang tải thông tin ngân hàng...</div>}>
-                  <BankInfoSection />
+              <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl shadow-xl border border-gray-700/50 overflow-hidden">
+                <div className="border-b border-gray-700/50 p-6">
+                  <h2 className="text-xl font-bold">Thông tin ngân hàng</h2>
+                  <p className="text-gray-400 text-sm mt-1">Quản lý thông tin tài khoản ngân hàng của bạn</p>
+                </div>
+                <Suspense fallback={
+                  <div className="p-8 flex justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                  </div>
+                }>
+                  <div className="p-6">
+                    <BankInfoSection />
+                  </div>
                 </Suspense>
               </div>
             )}
 
             {/* Verify Tab */}
             {activeTab === 'verify' && (
-              <div className="bg-gray-800/50 p-6 rounded-lg">
-                <Suspense fallback={<div className="p-4 text-center">Đang tải thông tin xác minh...</div>}>
-                  <IdentityVerificationSection />
+              <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl shadow-xl border border-gray-700/50 overflow-hidden">
+                <div className="border-b border-gray-700/50 p-6">
+                  <h2 className="text-xl font-bold">Xác minh danh tính</h2>
+                  <p className="text-gray-400 text-sm mt-1">Xác minh danh tính của bạn để mở khóa tất cả tính năng</p>
+                </div>
+                <Suspense fallback={
+                  <div className="p-8 flex justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                  </div>
+                }>
+                  <div className="p-6">
+                    <IdentityVerificationSection />
+                  </div>
                 </Suspense>
               </div>
             )}
             
             {/* Password Tab */}
             {activeTab === 'password' && (
-              <div className="bg-gray-800/50 p-6 rounded-lg">
-                <Suspense fallback={<div className="p-4 text-center">Đang tải...</div>}>
-                  <ChangePasswordSection />
+              <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl shadow-xl border border-gray-700/50 overflow-hidden">
+                <div className="border-b border-gray-700/50 p-6">
+                  <h2 className="text-xl font-bold">Đổi mật khẩu</h2>
+                  <p className="text-gray-400 text-sm mt-1">Cập nhật mật khẩu để bảo vệ tài khoản của bạn</p>
+                </div>
+                <Suspense fallback={
+                  <div className="p-8 flex justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                  </div>
+                }>
+                  <div className="p-6">
+                    <ChangePasswordSection />
+                  </div>
                 </Suspense>
               </div>
             )}
-            
-
           </div>
         </div>
       </div>

@@ -181,6 +181,9 @@ export function BankInfoSection() {
   const isVerified = user?.bankInfo?.verified || false;
   const isPending = user?.bankInfo?.pendingVerification || false;
   
+  // Kiểm tra xem đã có thông tin ngân hàng chưa
+  const hasBankInfo = !!(formData.bankName && formData.accountNumber);
+  
   // Thêm thông báo cho người dùng khi thông tin đã được xác minh hoặc đang chờ xác minh
   const getBankInfoStatus = () => {
     if (isVerified) {
