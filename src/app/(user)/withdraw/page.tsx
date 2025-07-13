@@ -320,115 +320,94 @@ export default function WithdrawPage() {
               </div>
               
               {/* Hiển thị thông tin ngân hàng */}
-              {savedBankInfo && savedBankInfo.verified ? (
-                <Card className="bg-gray-700 border-gray-600">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg font-medium flex items-center gap-2">
-                      <Landmark className="h-5 w-5" />
-                      Thông tin ngân hàng
+              <Card className="bg-gray-700 border-gray-600">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-medium flex items-center gap-2">
+                    <Landmark className="h-5 w-5" />
+                    Thông tin ngân hàng
+                    {savedBankInfo?.verified && (
                       <span className="ml-2 text-xs bg-green-500/20 text-green-500 px-2 py-1 rounded-full flex items-center">
                         <CheckCircle className="h-3 w-3 mr-1" /> Đã xác minh
                       </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4 pt-0">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                      <div>
-                        <p className="text-gray-400 text-sm">Ngân hàng:</p>
-                        <p className="text-white font-medium">{savedBankInfo.bankName}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400 text-sm">Số tài khoản:</p>
-                        <p className="text-white font-medium">{savedBankInfo.accountNumber}</p>
-                      </div>
-                      <div className="col-span-2">
-                        <p className="text-gray-400 text-sm">Chủ tài khoản:</p>
-                        <p className="text-white font-medium">{savedBankInfo.accountHolder}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : savedBankInfo && savedBankInfo.pendingVerification ? (
-                <Card className="bg-gray-700 border-gray-600">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg font-medium flex items-center gap-2">
-                      <Landmark className="h-5 w-5" />
-                      Thông tin ngân hàng
+                    )}
+                    {savedBankInfo?.pendingVerification && (
                       <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded-full flex items-center">
                         <AlertCircle className="h-3 w-3 mr-1" /> Đang chờ xác minh
                       </span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4 pt-0">
-                    <div className="space-y-4">
-                      <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
-                        <p className="text-gray-400 text-sm mb-1">Ngân hàng</p>
-                        <p className="text-white font-medium">{savedBankInfo.bankName}</p>
-                      </div>
-                      <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
-                        <p className="text-gray-400 text-sm mb-1">Số tài khoản</p>
-                        <p className="text-white font-medium">{savedBankInfo.accountNumber}</p>
-                      </div>
-                      <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
-                        <p className="text-gray-400 text-sm mb-1">Chủ tài khoản</p>
-                        <p className="text-white font-medium">{savedBankInfo.accountHolder}</p>
-                      </div>
-                      
-                      <div className="bg-yellow-900/20 p-3 rounded-md border border-yellow-900/30">
-                        <p className="text-sm text-yellow-400 flex items-center">
-                          <AlertTriangle className="h-4 w-4 mr-2" />
-                          Thông tin ngân hàng đang chờ xác minh
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="bg-gray-700 border-gray-600">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg font-medium flex items-center gap-2">
-                      <Landmark className="h-5 w-5" />
-                      Thông tin ngân hàng
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4 pt-0">
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="bankName" className="text-gray-400">Tên ngân hàng</Label>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-0">
+                  <div className="space-y-4">
+                    {/* Tên ngân hàng */}
+                    <div>
+                      <Label htmlFor="bankName" className="text-gray-400">Tên ngân hàng</Label>
+                      {(savedBankInfo?.verified || savedBankInfo?.pendingVerification) ? (
+                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
+                          <p className="text-white font-medium">{bankName}</p>
+                        </div>
+                      ) : (
                         <Input
                           id="bankName"
                           value={bankName}
                           onChange={(e) => setBankName(e.target.value)}
                           placeholder="Nhập tên ngân hàng"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
-                      </div>
-                      <div>
-                        <Label htmlFor="accountNumber" className="text-gray-400">Số tài khoản</Label>
+                      )}
+                    </div>
+                    
+                    {/* Số tài khoản */}
+                    <div>
+                      <Label htmlFor="accountNumber" className="text-gray-400">Số tài khoản</Label>
+                      {(savedBankInfo?.verified || savedBankInfo?.pendingVerification) ? (
+                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
+                          <p className="text-white font-medium">{accountNumber}</p>
+                        </div>
+                      ) : (
                         <Input
                           id="accountNumber"
                           value={accountNumber}
                           onChange={(e) => setAccountNumber(e.target.value)}
                           placeholder="Nhập số tài khoản"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
-                      </div>
-                      <div>
-                        <Label htmlFor="accountHolder" className="text-gray-400">Chủ tài khoản</Label>
+                      )}
+                    </div>
+                    
+                    {/* Chủ tài khoản */}
+                    <div>
+                      <Label htmlFor="accountHolder" className="text-gray-400">Chủ tài khoản</Label>
+                      {(savedBankInfo?.verified || savedBankInfo?.pendingVerification) ? (
+                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
+                          <p className="text-white font-medium">{accountHolder}</p>
+                        </div>
+                      ) : (
                         <Input
                           id="accountHolder"
                           value={accountHolder}
                           onChange={(e) => setAccountHolder(e.target.value)}
                           placeholder="Nhập tên chủ tài khoản"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
+                      )}
+                    </div>
+                    
+                    {/* Thông báo trạng thái xác minh */}
+                    {savedBankInfo?.pendingVerification && (
+                      <div className="bg-yellow-900/20 p-3 rounded-md border border-yellow-900/30">
+                        <p className="text-sm text-yellow-400 flex items-center">
+                          <AlertTriangle className="h-4 w-4 mr-2" />
+                          Thông tin ngân hàng đang chờ xác minh
+                        </p>
                       </div>
+                    )}
+                    
+                    {/* Nút lưu thông tin */}
+                    {!(savedBankInfo?.verified || savedBankInfo?.pendingVerification) && (
                       <Button
                         type="button"
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white"
@@ -444,10 +423,10 @@ export default function WithdrawPage() {
                           'Lưu thông tin ngân hàng'
                         )}
                       </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             
               <div className="bg-blue-500/10 p-4 rounded-lg border border-blue-500/20">
                 <p className="text-sm text-gray-300">
