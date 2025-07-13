@@ -6,7 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { 
+  CheckCircle, 
+  AlertTriangle, 
+  XCircle, 
+  CreditCard, 
+  Building, 
+  User, 
+  Clock,
+  PencilLine,
+  ShieldCheck,
+  ShieldAlert,
+  Info
+} from 'lucide-react';
 
 interface AuthContextType {
   user: any;
