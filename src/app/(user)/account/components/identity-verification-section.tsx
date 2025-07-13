@@ -164,10 +164,10 @@ export function IdentityVerificationSection() {
     try {
       const formDataToSubmit = new FormData();
       formDataToSubmit.append('fullName', formData.fullName);
-      formDataToSubmit.append('frontId', frontIdFile);
-      formDataToSubmit.append('backId', backIdFile);
+      formDataToSubmit.append('cccdFront', frontIdFile);
+      formDataToSubmit.append('cccdBack', backIdFile);
       
-      const response = await fetch('/api/verify-identity', {
+      const response = await fetch('/api/upload-verification', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getToken()}`
@@ -176,8 +176,8 @@ export function IdentityVerificationSection() {
       });
       
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-        throw new Error(data.message || 'Có lỗi xảy ra khi tải lên ảnh xác minh');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || `API error: ${response.status}`);
       }
       
       toast({
@@ -223,8 +223,8 @@ export function IdentityVerificationSection() {
           </label>
           <Input 
             type="text" 
-            value={fullName} 
-            onChange={(e) => setFullName(e.target.value)} 
+            value={formData.fullName} 
+            onChange={(e) => setFormData({...formData, fullName: e.target.value})} 
             placeholder="Nhập tên, vui lòng nhập thêm khoảng cách cho mỗi từ"
             className="bg-transparent border-gray-700 text-white"
             disabled={isVerified || isPending}
@@ -239,15 +239,15 @@ export function IdentityVerificationSection() {
             <div className="relative">
               <input
                 type="file"
-                ref={frontIdFileRef}
-                onChange={handleFrontIdUpload}
+                ref={frontIdInputRef}
+                onChange={handleFrontIdChange}
                 className="hidden"
                 accept="image/*"
                 disabled={isVerified || isPending}
               />
               <Button
                 type="button"
-                onClick={() => frontIdFileRef.current?.click()}
+                onClick={() => frontIdInputRef.current?.click()}
                 className="w-full bg-transparent border border-gray-700 hover:bg-gray-800 flex items-center justify-center"
                 disabled={isVerified || isPending}
               >
@@ -264,15 +264,15 @@ export function IdentityVerificationSection() {
             <div className="relative">
               <input
                 type="file"
-                ref={backIdFileRef}
-                onChange={handleBackIdUpload}
+                ref={backIdInputRef}
+                onChange={handleBackIdChange}
                 className="hidden"
                 accept="image/*"
                 disabled={isVerified || isPending}
               />
               <Button
                 type="button"
-                onClick={() => backIdFileRef.current?.click()}
+                onClick={() => backIdInputRef.current?.click()}
                 className="w-full bg-transparent border border-gray-700 hover:bg-gray-800 flex items-center justify-center"
                 disabled={isVerified || isPending}
               >
