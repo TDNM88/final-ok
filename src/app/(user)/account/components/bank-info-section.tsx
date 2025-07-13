@@ -173,7 +173,7 @@ export function BankInfoSection() {
 
   // Format date helper
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
   
@@ -366,6 +366,7 @@ export function BankInfoSection() {
               <XCircle className="w-4 h-4 mr-1" /> Chưa xác minh
             </span>
           )}
+        </div>
         </div>
       </div>
       
