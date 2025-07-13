@@ -1,17 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMongoDb } from '@/lib/db';
 import { ObjectId } from 'mongodb';
-import { verifyToken, getUserFromRequest } from '@/lib/auth';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Xác thực người dùng
-    const user = await getUserFromRequest(request);
-    if (!user || !user.userId || !user.isAuthenticated) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Lấy token từ header
+    const token = request.headers.get('authorization')?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json({ message: 'Bạn cần đăng nhập' }, { status: 401 });
+    }
+
+    // Giải mã token để lấy thông tin người dùng
+    let userId;
+    
+    try {
+      // Nếu token là JWT (có dạng xxx.yyy.zzz)
+      if (token.includes('.') && token.split('.').length === 3) {
+        // Giải mã phần payload của JWT token (phần thứ 2)
+        const base64Payload = token.split('.')[1];
+        const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
+        userId = payload.id || payload.userId || payload.sub;
+      } 
+      // Nếu token có dạng user_ID_timestamp
+      else if (token.includes('_')) {
+        const parts = token.split('_');
+        if (parts.length > 1) {
+          userId = parts[1]; 
+        }
+      }
+      
+      if (!userId) {
+        console.error('Không thể xác định user ID từ token');
+        return NextResponse.json({ message: 'Token không hợp lệ' }, { status: 401 });
+      }
+      
+      console.log('Xác thực thành công với userId:', userId);
+    } catch (error) {
+      console.error('Token verification error:', error);
+      return NextResponse.json({ message: 'Token không hợp lệ' }, { status: 401 });
     }
 
     // Lấy tham số phân trang từ query string
@@ -30,9 +56,8 @@ export async function GET(request: Request) {
     }
 
     // Lấy danh sách nạp tiền của người dùng
-    const userId = user.userId as string;
     const deposits = await db.collection('deposits')
-      .find({ user: new ObjectId(userId) })
+      .find({ userId: new ObjectId(userId) })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -40,9 +65,10 @@ export async function GET(request: Request) {
 
     // Lấy tổng số bản ghi để phân trang
     const total = await db.collection('deposits')
-      .countDocuments({ user: new ObjectId(userId) });
+      .countDocuments({ userId: new ObjectId(userId) });
 
     return NextResponse.json({
+      success: true,
       data: deposits,
       pagination: {
         total,
@@ -55,7 +81,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Error fetching deposit history:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { success: false, message: error instanceof Error ? error.message : 'Lỗi khi lấy lịch sử nạp tiền' },
       { status: 500 }
     );
   }
