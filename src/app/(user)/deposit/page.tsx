@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import useSWR from 'swr';
-import { Upload } from 'lucide-react';
+import { Upload, Copy, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function DepositPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -198,122 +199,143 @@ export default function DepositPage() {
             ) : (
               <p className="text-gray-400">Hiện tại chưa có thông tin ngân hàng nền tảng.</p>
             )}
-          </CardContent>
-        </Card>
 
-        {/* Form nạp tiền */}
-        <Card className="bg-gray-800 border-gray-700 shadow-lg rounded-xl">
-          <CardHeader className="border-b border-gray-700 p-6">
-            <CardTitle className="text-2xl font-semibold text-white">Nạp tiền</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 space-y-6">
-            <div>
-              <h3 className="text-lg font-medium text-gray-300 mb-4">Thông tin ngân hàng nhận tiền</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <Label className="text-gray-400">Chọn ngân hàng</Label>
-                  <select
-                    value={selectedBank}
-                    onChange={(e) => setSelectedBank(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-gray-600 bg-gray-700 px-3 py-2 text-sm text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-                    required
-                  >
-                    <option value="" disabled>-- Chọn ngân hàng --</option>
-                    {platformBanks?.banks?.map((bank: any, index: number) => (
-                      <option key={index} value={bank.bankName}>
-                        {bank.bankName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label className="text-gray-400">Số tiền nạp (VND)</Label>
-                  <Input
-                    type="number"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="Nhập số tiền"
-                    className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                    min={settings?.minDeposit || 0}
-                    max={settings?.maxDeposit || 100000000}
-                    required
-                  />
-                </div>
-              </div>
-              
-              {selectedBank && platformBanks?.banks && (
-                <div className="bg-gray-700 p-4 rounded-md mb-4">
-                  <h4 className="font-medium text-gray-300 mb-2">Thông tin chuyển khoản:</h4>
+            {selectedBank && platformBanks && (
+              <Card className="bg-gray-700 border-gray-600">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-medium">Thông tin chuyển khoản</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-0">
                   {platformBanks.banks.find((b: any) => b.bankName === selectedBank) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <p className="text-gray-400">Ngân hàng:</p>
-                        <p className="text-white">{selectedBank}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400">Số tài khoản:</p>
-                        <p className="text-white">{
-                          platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.accountNumber
-                        }</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400">Chủ tài khoản:</p>
-                        <p className="text-white">{
-                          platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.accountHolder
-                        }</p>
-                      </div>
-                      {platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.branch && (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <p className="text-gray-400">Chi nhánh:</p>
-                          <p className="text-white">{
-                            platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.branch
-                          }</p>
+                          <p className="text-gray-400 text-sm">Ngân hàng:</p>
+                          <p className="text-white font-medium">{selectedBank}</p>
                         </div>
-                      )}
+                        <div>
+                          <p className="text-gray-400 text-sm">Số tài khoản:</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-medium">
+                              {platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.accountNumber}
+                            </p>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 rounded-full hover:bg-gray-600"
+                              onClick={() => {
+                                navigator.clipboard.writeText(platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.accountNumber);
+                                toast({ description: "Đã sao chép số tài khoản" });
+                              }}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="text-gray-400 text-sm">Chủ tài khoản:</p>
+                          <p className="text-white font-medium">
+                            {platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.accountHolder}
+                          </p>
+                        </div>
+                        {platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.branch && (
+                          <div>
+                            <p className="text-gray-400 text-sm">Chi nhánh:</p>
+                            <p className="text-white font-medium">
+                              {platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.branch}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
                       <div>
-                        <p className="text-gray-400">Nội dung chuyển khoản:</p>
-                        <p className="text-white font-mono">NAP-{user?.username || 'user'}-{new Date().getTime().toString().slice(-6)}</p>
+                        <p className="text-gray-400 text-sm">Nội dung chuyển khoản:</p>
+                        <div className="flex items-center gap-2 bg-gray-800 p-2 rounded mt-1">
+                          <p className="text-white font-mono">
+                            NAP-{user?.username || 'user'}-{new Date().getTime().toString().slice(-6)}
+                          </p>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 rounded-full hover:bg-gray-600"
+                            onClick={() => {
+                              navigator.clipboard.writeText(`NAP-${user?.username || 'user'}-${new Date().getTime().toString().slice(-6)}`);
+                              toast({ description: "Đã sao chép nội dung chuyển khoản" });
+                            }}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="mt-6">
+              <Card className="bg-gray-700 border-gray-600">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-medium">Tải lên bill chuyển khoản</CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Vui lòng tải lên ảnh chụp màn hình hoặc hóa đơn chuyển khoản để xác nhận giao dịch
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-2">
+                  <div className="grid gap-4">
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex items-center justify-center w-full">
+                        <label htmlFor="file-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer border-gray-600 hover:border-gray-500 bg-gray-800/50">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <Upload className="w-8 h-8 mb-3 text-gray-400" />
+                            <p className="mb-2 text-sm text-gray-400">
+                              <span className="font-medium">Nhấn để tải lên</span> hoặc kéo thả file
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              PNG, JPG hoặc PDF (Tối đa 10MB)
+                            </p>
+                          </div>
+                          <Input
+                            id="file-upload"
+                            type="file"
+                            accept="image/*,.pdf"
+                            onChange={handleFileChange}
+                            disabled={isUploading}
+                            className="hidden"
+                          />
+                        </label>
                       </div>
                     </div>
-                  )}
-                </div>
-              )}
+                    
+                    {isUploading && (
+                      <div className="flex items-center justify-center text-sm text-blue-400">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Đang tải lên ảnh...
+                      </div>
+                    )}
+                    
+                    {bill && !isUploading && billUrl && (
+                      <div className="flex items-center text-sm text-green-400 bg-green-400/10 p-2 rounded">
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Đã tải lên thành công: {bill.name}
+                      </div>
+                    )}
+                    
+                    {bill && !isUploading && !billUrl && (
+                      <div className="flex items-center text-sm text-yellow-400 bg-yellow-400/10 p-2 rounded">
+                        <AlertCircle className="h-4 w-4 mr-2" />
+                        Lỗi khi tải lên. Vui lòng thử lại.
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
-            <div>
-              <Label className="text-gray-400">Tải lên bill chuyển khoản</Label>
-              <div className="space-y-2">
-                <div className="flex items-center gap-4">
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    disabled={isUploading}
-                    className="bg-gray-700 text-white border-gray-600 focus:border-blue-500 file:bg-gray-600 file:text-white file:hover:bg-gray-500 disabled:opacity-50"
-                  />
-                </div>
-                
-                {isUploading && (
-                  <div className="flex items-center text-sm text-blue-400">
-                    <div className="h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Đang tải lên ảnh...
-                  </div>
-                )}
-                
-                {bill && !isUploading && billUrl && (
-                  <div className="text-sm text-green-400">
-                    ✓ Đã tải lên: {bill.name}
-                  </div>
-                )}
-                
-                {bill && !isUploading && !billUrl && (
-                  <div className="text-sm text-yellow-400">
-                    Lỗi khi tải lên. Vui lòng thử lại.
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex items-start space-x-2 mt-4">
+            <div className="flex items-start space-x-2 mt-6 bg-blue-500/10 p-4 rounded-lg border border-blue-500/20">
               <input
                 type="checkbox"
                 id="confirm-deposit"
@@ -328,19 +350,19 @@ export default function DepositPage() {
             </div>
 
             <Button
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-md transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed mt-4"
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-md transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed mt-6"
               onClick={handleSubmit}
               disabled={!amount || !bill || isUploading || !billUrl || !selectedBank || !isConfirmed}
             >
               {isUploading ? (
                 <>
-                  <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
                   Đang xử lý...
                 </>
               ) : (
                 <>
                   <Upload className="h-5 w-5 mr-2" />
-                  Gửi yêu cầu
+                  Gửi yêu cầu nạp tiền
                 </>
               )}
             </Button>

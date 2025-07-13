@@ -3,15 +3,41 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/useAuth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
+import { AlertCircle, AlertTriangle, CheckCircle, Loader2, Landmark, ArrowRight } from 'lucide-react';
 import useSWR from 'swr';
+import Link from 'next/link';
+
+// Định nghĩa kiểu cho user để tránh lỗi TypeScript
+interface BankInfo {
+  bankName?: string;
+  accountNumber?: string;
+  accountHolder?: string;
+  verified?: boolean;
+  pendingVerification?: boolean;
+}
+
+interface User {
+  _id: string;
+  username: string;
+  email: string;
+  balance: number;
+  bankInfo?: BankInfo;
+}
+
+interface AuthContextType {
+  user: User | null;
+  isLoading: boolean;
+  logout: () => Promise<void>;
+  isAuthenticated: () => boolean;
+}
 
 export default function WithdrawPage() {
-  const { user, isLoading, logout, isAuthenticated } = useAuth();
+  const { user, isLoading, logout, isAuthenticated } = useAuth() as AuthContextType;
   // Lấy token từ localStorage thay vì từ useAuth
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('authToken') : null;
   const router = useRouter();
@@ -20,6 +46,9 @@ export default function WithdrawPage() {
   const [bankName, setBankName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [accountHolder, setAccountHolder] = useState('');
+  const [hasBankInfo, setHasBankInfo] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: settings, error: settingsError } = useSWR(
     token ? '/api/admin/settings' : null,
@@ -30,17 +59,31 @@ export default function WithdrawPage() {
     if (!isLoading && !user) {
       toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng đăng nhập' });
       router.push('/login');
+      return;
     }
+    
     if (user) {
-      setBankName(user.bank?.name || '');
-      setAccountNumber(user.bank?.accountNumber || '');
-      setAccountHolder(user.bank?.accountHolder || '');
+      // Kiểm tra xem người dùng đã có thông tin ngân hàng chưa
+      if (user.bankInfo) {
+        setBankName(user.bankInfo.bankName || '');
+        setAccountNumber(user.bankInfo.accountNumber || '');
+        setAccountHolder(user.bankInfo.accountHolder || '');
+        setIsVerified(user.bankInfo.verified || false);
+        setHasBankInfo(!!user.bankInfo.bankName && !!user.bankInfo.accountNumber && !!user.bankInfo.accountHolder);
+      } else {
+        setHasBankInfo(false);
+      }
     }
   }, [user, isLoading, router, toast]);
 
   const handleSubmit = async () => {
-    if (!amount || !bankName || !accountNumber || !accountHolder) {
-      toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập đầy đủ thông tin' });
+    if (!amount) {
+      toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập số tiền rút' });
+      return;
+    }
+    
+    if (!hasBankInfo) {
+      toast({ variant: 'destructive', title: 'Lỗi', description: 'Bạn cần liên kết tài khoản ngân hàng trước' });
       return;
     }
 
@@ -54,6 +97,7 @@ export default function WithdrawPage() {
     }
 
     try {
+      setIsSubmitting(true);
       const res = await fetch('/api/withdrawals', {
         method: 'POST',
         headers: {
@@ -71,68 +115,138 @@ export default function WithdrawPage() {
       }
     } catch (err) {
       toast({ variant: 'destructive', title: 'Lỗi', description: 'Không thể gửi yêu cầu' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  if (isLoading || !user) {
-    return <div className="flex justify-center items-center h-screen text-white">Loading...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen bg-gray-900">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    router.push('/login');
+    return null;
   }
 
   return (
-    <div className="text-white">
-      <Card className="bg-gray-800 border-gray-700 max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-900 text-white py-8">
+      <div className="container mx-auto px-4 max-w-2xl">
+        <Card className="bg-gray-800 border-gray-700 shadow-lg">
           <CardHeader>
-            <CardTitle className="text-white">Rút tiền</CardTitle>
+            <CardTitle className="text-2xl font-bold text-white">Rút tiền</CardTitle>
+            <CardDescription className="text-gray-400">
+              Rút tiền về tài khoản ngân hàng của bạn
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <Label className="text-white">Số tiền rút</Label>
-              <Input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Số tiền (VND)"
-                className="bg-gray-700 text-white"
-              />
-            </div>
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Thông tin ngân hàng</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-white">Tên ngân hàng</Label>
-                  <Input
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    className="bg-gray-700 text-white"
-                  />
+          
+          {!hasBankInfo ? (
+            <>
+              <CardContent className="space-y-4">
+                <div className="bg-orange-500/20 border border-orange-500/30 rounded-lg p-4 flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-medium text-orange-500">Bạn chưa liên kết tài khoản ngân hàng!</h3>
+                    <p className="text-sm text-gray-300 mt-1">
+                      Để rút tiền, bạn cần liên kết tài khoản ngân hàng trong phần Tài khoản.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-white">Số tài khoản</Label>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white" 
+                  onClick={() => router.push('/account?tab=bank')}
+                >
+                  Liên kết ngay
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </CardFooter>
+            </>
+          ) : (
+            <CardContent className="space-y-6">
+              <div>
+                <Label htmlFor="amount" className="text-gray-400 required-field">Số tiền rút</Label>
+                <div className="relative">
                   <Input
-                    value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    className="bg-gray-700 text-white"
+                    id="amount"
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Nhập số tiền muốn rút"
+                    className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                    required
                   />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                    VND
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-white">Chủ tài khoản</Label>
-                  <Input
-                    value={accountHolder}
-                    onChange={(e) => setAccountHolder(e.target.value)}
-                    className="bg-gray-700 text-white"
-                  />
-                </div>
+                {settings && (
+                  <p className="text-sm text-gray-400 mt-1">
+                    Số tiền rút tối thiểu: {settings.minWithdrawal?.toLocaleString()} VND
+                  </p>
+                )}
               </div>
-            </div>
-            <Button
-              className="bg-green-600 hover:bg-green-700"
-              onClick={handleSubmit}
-              disabled={!amount || !bankName || !accountNumber || !accountHolder}
-            >
-              Gửi yêu cầu
-            </Button>
-          </CardContent>
+              
+              <Card className="bg-gray-700 border-gray-600">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-medium flex items-center gap-2">
+                    <Landmark className="h-5 w-5" />
+                    Thông tin ngân hàng
+                    {isVerified && (
+                      <span className="ml-2 text-xs bg-green-500/20 text-green-500 px-2 py-1 rounded-full flex items-center">
+                        <CheckCircle className="h-3 w-3 mr-1" /> Đã xác minh
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-0">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    <div>
+                      <p className="text-gray-400 text-sm">Ngân hàng:</p>
+                      <p className="text-white font-medium">{bankName}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-sm">Số tài khoản:</p>
+                      <p className="text-white font-medium">{accountNumber}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-gray-400 text-sm">Chủ tài khoản:</p>
+                      <p className="text-white font-medium">{accountHolder}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <div className="bg-blue-500/10 p-4 rounded-lg border border-blue-500/20">
+                <p className="text-sm text-gray-300">
+                  <AlertCircle className="h-4 w-4 text-blue-500 inline mr-2" />
+                  Yêu cầu rút tiền sẽ được xử lý trong vòng 24 giờ làm việc. Vui lòng kiểm tra thông tin ngân hàng trước khi gửi yêu cầu.
+                </p>
+              </div>
+              
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5"
+                onClick={handleSubmit}
+                disabled={!amount || isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  'Gửi yêu cầu rút tiền'
+                )}
+              </Button>
+            </CardContent>
+          )}
         </Card>
+      </div>
     </div>
   );
 }
