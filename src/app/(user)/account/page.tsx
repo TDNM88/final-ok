@@ -22,7 +22,7 @@ import { AccountOverviewSection } from './components/account-overview-section';
 import { IdentityVerificationSection } from './components/identity-verification-section';
 import { ChangePasswordSection } from './components/change-password-section';
 
-type TabType = 'overview' | 'bank' | 'verify' | 'password';
+type TabType = 'overview' | 'verification' | 'password';
 
 interface AuthContextType {
   user: any;
@@ -157,58 +157,37 @@ export default function AccountPage() {
               </div>
 
               <nav className={`${isMobileMenuOpen ? 'block' : 'hidden lg:block'}`}>
-                <div className="p-3 space-y-1">
+                <div className="flex flex-col space-y-1 md:space-y-0 md:flex-row md:space-x-4">
                   <Button
                     variant={activeTab === 'overview' ? 'default' : 'ghost'}
-                    className={`w-full justify-start gap-3 py-5 ${activeTab === 'overview' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800/70'}`}
+                    className={`justify-start ${activeTab === 'overview' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800'}`}
                     onClick={() => handleTabChange('overview')}
                   >
-                    <User className="h-5 w-5" />
-                    <span>Tổng quan tài khoản</span>
-                    {activeTab === 'overview' && <ChevronRight className="h-4 w-4 ml-auto" />}
+                    <User className="mr-2 h-4 w-4" />
+                    Tổng quan
                   </Button>
-                  
                   <Button
-                    variant={activeTab === 'bank' ? 'default' : 'ghost'}
-                    className={`w-full justify-start gap-3 py-5 ${activeTab === 'bank' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800/70'}`}
-                    onClick={() => handleTabChange('bank')}
+                    variant={activeTab === 'verification' ? 'default' : 'ghost'}
+                    className={`justify-start ${activeTab === 'verification' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800'}`}
+                    onClick={() => handleTabChange('verification')}
                   >
-                    <CreditCard className="h-5 w-5" />
-                    <span>Thông tin ngân hàng</span>
-                    {user?.bankInfo?.verified && (
-                      <div className="ml-auto bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full flex items-center">
-                        <ShieldCheck className="h-3 w-3 mr-1" />
-                        Đã xác minh
-                      </div>
-                    )}
-                    {!user?.bankInfo?.verified && activeTab === 'bank' && <ChevronRight className="h-4 w-4 ml-auto" />}
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    Xác minh tài khoản
                   </Button>
-                  
-                  <Button
-                    variant={activeTab === 'verify' ? 'default' : 'ghost'}
-                    className={`w-full justify-start gap-3 py-5 ${activeTab === 'verify' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800/70'}`}
-                    onClick={() => handleTabChange('verify')}
-                  >
-                    <ShieldCheck className="h-5 w-5" />
-                    <span>Xác minh danh tính</span>
-                    {isVerified && (
-                      <div className="ml-auto bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full flex items-center">
-                        <ShieldCheck className="h-3 w-3 mr-1" />
-                        Đã xác minh
-                      </div>
-                    )}
-                    {!isVerified && activeTab === 'verify' && <ChevronRight className="h-4 w-4 ml-auto" />}
-                  </Button>
-                  
                   <Button
                     variant={activeTab === 'password' ? 'default' : 'ghost'}
-                    className={`w-full justify-start gap-3 py-5 ${activeTab === 'password' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800/70'}`}
+                    className={`justify-start ${activeTab === 'password' ? 'bg-blue-600 hover:bg-blue-700' : 'hover:bg-gray-800'}`}
                     onClick={() => handleTabChange('password')}
                   >
-                    <KeyRound className="h-5 w-5" />
-                    <span>Đổi mật khẩu</span>
-                    {activeTab === 'password' && <ChevronRight className="h-4 w-4 ml-auto" />}
+                    <KeyRound className="mr-2 h-4 w-4" />
+                    Mật khẩu
                   </Button>
+                  {isVerified && (
+                    <div className="ml-auto bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full flex items-center">
+                      <ShieldCheck className="h-3 w-3 mr-1" />
+                      Đã xác minh
+                    </div>
+                  )}
                 </div>
                 
                 <div className="border-t border-gray-700/50 p-3">
@@ -237,7 +216,7 @@ export default function AccountPage() {
                     <Button 
                       className="mt-3 bg-amber-600 hover:bg-amber-700 text-white" 
                       size="sm"
-                      onClick={() => handleTabChange('verify')}
+                      onClick={() => handleTabChange('verification')}
                     >
                       Xác minh ngay
                     </Button>
@@ -268,41 +247,42 @@ export default function AccountPage() {
               </div>
             )}
 
-            {/* Bank Info Tab */}
-            {activeTab === 'bank' && (
-              <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl shadow-xl border border-gray-700/50 overflow-hidden">
-                <div className="border-b border-gray-700/50 p-6">
-                  <h2 className="text-xl font-bold">Thông tin ngân hàng</h2>
-                  <p className="text-gray-400 text-sm mt-1">Quản lý thông tin tài khoản ngân hàng của bạn</p>
+            {/* Verification Tab (Combined Bank Info and Identity Verification) */}
+            {activeTab === 'verification' && (
+              <div className="space-y-6">
+                {/* Bank Info Section */}
+                <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl shadow-xl border border-gray-700/50 overflow-hidden">
+                  <div className="border-b border-gray-700/50 p-6">
+                    <h2 className="text-xl font-bold">Thông tin ngân hàng</h2>
+                    <p className="text-gray-400 text-sm mt-1">Quản lý thông tin tài khoản ngân hàng của bạn</p>
+                  </div>
+                  <Suspense fallback={
+                    <div className="p-8 flex justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    </div>
+                  }>
+                    <div className="p-6">
+                      <BankInfoSection />
+                    </div>
+                  </Suspense>
                 </div>
-                <Suspense fallback={
-                  <div className="p-8 flex justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                
+                {/* Identity Verification Section */}
+                <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl shadow-xl border border-gray-700/50 overflow-hidden">
+                  <div className="border-b border-gray-700/50 p-6">
+                    <h2 className="text-xl font-bold">Xác minh danh tính</h2>
+                    <p className="text-gray-400 text-sm mt-1">Xác minh danh tính của bạn để mở khóa tất cả tính năng</p>
                   </div>
-                }>
-                  <div className="p-6">
-                    <BankInfoSection />
-                  </div>
-                </Suspense>
-              </div>
-            )}
-
-            {/* Verify Tab */}
-            {activeTab === 'verify' && (
-              <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl shadow-xl border border-gray-700/50 overflow-hidden">
-                <div className="border-b border-gray-700/50 p-6">
-                  <h2 className="text-xl font-bold">Xác minh danh tính</h2>
-                  <p className="text-gray-400 text-sm mt-1">Xác minh danh tính của bạn để mở khóa tất cả tính năng</p>
+                  <Suspense fallback={
+                    <div className="p-8 flex justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    </div>
+                  }>
+                    <div className="p-6">
+                      <IdentityVerificationSection />
+                    </div>
+                  </Suspense>
                 </div>
-                <Suspense fallback={
-                  <div className="p-8 flex justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                  </div>
-                }>
-                  <div className="p-6">
-                    <IdentityVerificationSection />
-                  </div>
-                </Suspense>
               </div>
             )}
             
