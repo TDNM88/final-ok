@@ -319,6 +319,7 @@ export default function WithdrawPage() {
                 )}
               </div>
               
+              {/* Hiển thị thông tin ngân hàng */}
               {savedBankInfo && savedBankInfo.verified ? (
                 <Card className="bg-gray-700 border-gray-600">
                   <CardHeader className="pb-2">
@@ -359,25 +360,26 @@ export default function WithdrawPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4 pt-0">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                      <div>
-                        <p className="text-gray-400 text-sm">Ngân hàng:</p>
+                    <div className="space-y-4">
+                      <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
+                        <p className="text-gray-400 text-sm mb-1">Ngân hàng</p>
                         <p className="text-white font-medium">{savedBankInfo.bankName}</p>
                       </div>
-                      <div>
-                        <p className="text-gray-400 text-sm">Số tài khoản:</p>
+                      <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
+                        <p className="text-gray-400 text-sm mb-1">Số tài khoản</p>
                         <p className="text-white font-medium">{savedBankInfo.accountNumber}</p>
                       </div>
-                      <div className="col-span-2">
-                        <p className="text-gray-400 text-sm">Chủ tài khoản:</p>
+                      <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
+                        <p className="text-gray-400 text-sm mb-1">Chủ tài khoản</p>
                         <p className="text-white font-medium">{savedBankInfo.accountHolder}</p>
                       </div>
-                    </div>
-                    <div className="bg-yellow-500/10 p-3 rounded-md border border-yellow-500/20">
-                      <p className="text-sm text-yellow-400">
-                        <AlertCircle className="h-4 w-4 inline mr-1" />
-                        Thông tin ngân hàng của bạn đang chờ xác minh. Bạn không thể rút tiền cho đến khi thông tin được xác minh.
-                      </p>
+                      
+                      <div className="bg-yellow-900/20 p-3 rounded-md border border-yellow-900/30">
+                        <p className="text-sm text-yellow-400 flex items-center">
+                          <AlertTriangle className="h-4 w-4 mr-2" />
+                          Thông tin ngân hàng đang chờ xác minh
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -399,7 +401,6 @@ export default function WithdrawPage() {
                           onChange={(e) => setBankName(e.target.value)}
                           placeholder="Nhập tên ngân hàng"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
                       </div>
@@ -411,7 +412,6 @@ export default function WithdrawPage() {
                           onChange={(e) => setAccountNumber(e.target.value)}
                           placeholder="Nhập số tài khoản"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
                       </div>
@@ -423,7 +423,6 @@ export default function WithdrawPage() {
                           onChange={(e) => setAccountHolder(e.target.value)}
                           placeholder="Nhập tên chủ tài khoản"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
                       </div>
@@ -431,7 +430,7 @@ export default function WithdrawPage() {
                         type="button"
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                         onClick={saveBankInfo}
-                        disabled={!bankName || !accountNumber || !accountHolder || isSavingBankInfo || savedBankInfo?.verified || savedBankInfo?.pendingVerification}
+                        disabled={!bankName || !accountNumber || !accountHolder || isSavingBankInfo}
                       >
                         {isSavingBankInfo ? (
                           <>
@@ -446,7 +445,7 @@ export default function WithdrawPage() {
                   </CardContent>
                 </Card>
               )}
-              
+            
               <div className="bg-blue-500/10 p-4 rounded-lg border border-blue-500/20">
                 <p className="text-sm text-gray-300">
                   <AlertCircle className="h-4 w-4 text-blue-500 inline mr-2" />
