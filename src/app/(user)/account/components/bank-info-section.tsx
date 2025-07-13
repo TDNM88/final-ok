@@ -24,25 +24,57 @@ export function BankInfoSection() {
     accountNumber: user?.bankInfo?.accountNumber || ''
   });
   
-  // Load data from localStorage on component mount
   useEffect(() => {
-    if (typeof window !== 'undefined' && user) {
-      const savedBankData = localStorage.getItem('userBankInfo');
-      if (savedBankData) {
+    if (user?.bankInfo) {
+      setFormData({
+        fullName: user.bankInfo.fullName || '',
+        bankType: user.bankInfo.bankType || '',
+        bankName: user.bankInfo.bankName || '',
+        accountNumber: user.bankInfo.accountNumber || '',
+      });
+      
+      // Đặt pendingVerification = true để luôn hiển thị dạng card nếu đã có thông tin từ server
+      if (!user.bankInfo.verified && !user.bankInfo.pendingVerification) {
+        // Lưu trạng thái pendingVerification vào localStorage để lần sau hiển thị dạng card
+        if (typeof window !== 'undefined') {
+          try {
+            const bankInfoToSave = {
+              ...user.bankInfo,
+              userId: user._id || user.id,
+              pendingVerification: true
+            };
+            localStorage.setItem('userBankInfo', JSON.stringify(bankInfoToSave));
+          } catch (error) {
+            console.error('Error saving bank info to localStorage:', error);
+          }
+        }
+      }
+    } else if (typeof window !== 'undefined') {
+      // Thử lấy thông tin từ localStorage nếu không có từ user
+      const savedBankInfo = localStorage.getItem('userBankInfo');
+      if (savedBankInfo) {
         try {
-          const parsedData = JSON.parse(savedBankData);
-          if (parsedData.userId === user._id || parsedData.userId === user.id) {
-            // Chỉ sử dụng dữ liệu từ localStorage nếu chưa có dữ liệu từ server
-            if (!user?.bankInfo?.verified && !user?.bankInfo?.pendingVerification) {
-              setFormData(prev => ({
-                ...prev,
-                bankName: parsedData.bankName || prev.bankName,
-                accountNumber: parsedData.accountNumber || prev.accountNumber,
-                fullName: parsedData.accountHolder || prev.fullName
-              }));
+          const parsedInfo = JSON.parse(savedBankInfo);
+          // Kiểm tra xem thông tin có thuộc về user hiện tại không
+          if (user && (parsedInfo.userId === user._id || parsedInfo.userId === user.id)) {
+            setFormData({
+              fullName: parsedInfo.fullName || parsedInfo.accountHolder || '',
+              bankType: parsedInfo.bankType || '',
+              bankName: parsedInfo.bankName || '',
+              accountNumber: parsedInfo.accountNumber || '',
+            });
+            
+            // Đặt pendingVerification = true để luôn hiển thị dạng card từ lần truy cập sau
+            if (!parsedInfo.verified && !parsedInfo.pendingVerification) {
+              const updatedInfo = {
+                ...parsedInfo,
+                pendingVerification: true
+              };
+              localStorage.setItem('userBankInfo', JSON.stringify(updatedInfo));
             }
           }
         } catch (error) {
+          console.error('Error parsing saved bank info:', error);
           console.error('Lỗi khi đọc dữ liệu ngân hàng đã lưu:', error);
         }
       }

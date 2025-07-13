@@ -74,53 +74,51 @@ export default function WithdrawPage() {
       return;
     }
     
-    // Lấy thông tin ngân hàng đã lưu từ localStorage ngay khi trang được tải
+    // Lấy thông tin ngân hàng từ localStorage trước
     if (typeof window !== 'undefined') {
-      const savedBankData = localStorage.getItem('userBankInfo');
-      if (savedBankData && user) {
+      const savedInfo = localStorage.getItem('userBankInfo');
+      if (savedInfo) {
         try {
-          const parsedData = JSON.parse(savedBankData);
-          if (parsedData.userId === user._id || parsedData.userId === user.id) {
-            setSavedBankInfo(parsedData);
-            setBankName(parsedData.bankName || '');
-            setAccountNumber(parsedData.accountNumber || '');
-            setAccountHolder(parsedData.accountHolder || '');
-            setHasBankInfo(!!parsedData.bankName && !!parsedData.accountNumber && !!parsedData.accountHolder);
+          const parsedInfo = JSON.parse(savedInfo);
+          // Kiểm tra xem thông tin có thuộc về user hiện tại không
+          if (user && (parsedInfo.userId === user._id || parsedInfo.userId === user.id)) {
+            setBankName(parsedInfo.bankName || '');
+            setAccountNumber(parsedInfo.accountNumber || '');
+            setAccountHolder(parsedInfo.accountHolder || '');
+            setHasBankInfo(true);
+            
+            // Luôn hiển thị dạng card nếu đã có thông tin từ trước
+            setSavedBankInfo({
+              bankName: parsedInfo.bankName || '',
+              accountNumber: parsedInfo.accountNumber || '',
+              accountHolder: parsedInfo.accountHolder || '',
+              verified: parsedInfo.verified || false,
+              pendingVerification: true // Đặt pendingVerification = true để luôn hiển thị dạng card
+            });
           }
         } catch (error) {
-          console.error('Lỗi khi đọc dữ liệu ngân hàng đã lưu:', error);
+          console.error('Error parsing saved bank info:', error);
         }
       }
     }
-    
-    if (user) {
-      // Kiểm tra xem người dùng đã có thông tin ngân hàng chưa
-      if (user.bankInfo) {
-        setBankName(user.bankInfo.bankName || '');
-        setAccountNumber(user.bankInfo.accountNumber || '');
-        setAccountHolder(user.bankInfo.accountHolder || '');
-        setIsVerified(user.bankInfo.verified || false);
-        setHasBankInfo(!!user.bankInfo.bankName && !!user.bankInfo.accountNumber && !!user.bankInfo.accountHolder);
-        
-        // Lưu thông tin ngân hàng đã xác minh vào state để hiển thị
-        if (user.bankInfo.verified) {
-          setSavedBankInfo({
-            bankName: user.bankInfo.bankName || '',
-            accountNumber: user.bankInfo.accountNumber || '',
-            accountHolder: user.bankInfo.accountHolder || '',
-            verified: true
-          });
-        } else if (user.bankInfo.pendingVerification) {
-          setSavedBankInfo({
-            bankName: user.bankInfo.bankName || '',
-            accountNumber: user.bankInfo.accountNumber || '',
-            accountHolder: user.bankInfo.accountHolder || '',
-            pendingVerification: true
-          });
-        }
-      } else {
-        setHasBankInfo(false);
-      }
+
+    // Cập nhật thông tin ngân hàng từ user object nếu có
+    if (user?.bankInfo) {
+      setBankName(user.bankInfo.bankName || '');
+      setAccountNumber(user.bankInfo.accountNumber || '');
+      setAccountHolder(user.bankInfo.accountHolder || '');
+      setHasBankInfo(true);
+      
+      // Luôn hiển thị dạng card nếu đã có thông tin từ server
+      setSavedBankInfo({
+        bankName: user.bankInfo.bankName || '',
+        accountNumber: user.bankInfo.accountNumber || '',
+        accountHolder: user.bankInfo.accountHolder || '',
+        verified: user.bankInfo.verified || false,
+        pendingVerification: true // Đặt pendingVerification = true để luôn hiển thị dạng card
+      });
+    } else {
+      setHasBankInfo(false);
     }
   }, [user, isLoading, router, toast]);
 
