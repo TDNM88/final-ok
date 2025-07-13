@@ -426,13 +426,6 @@ export default function DepositPage() {
                 Gửi yêu cầu nạp tiền
               </Button>
             )}
-              ) : (
-                <>
-                  <Upload className="h-5 w-5 mr-2" />
-                  Gửi yêu cầu nạp tiền
-                </>
-              )}
-            </Button>
           </CardContent>
         </Card>
       </div>
