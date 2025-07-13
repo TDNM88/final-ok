@@ -25,70 +25,90 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 
+interface BankInfo {
+  fullName: string;
+  bankType: string;
+  bankName: string;
+  accountNumber: string;
+  verified?: boolean;
+  pendingVerification?: boolean;
+  userId?: string;
+  verifiedAt?: string;
+  submittedAt?: string;
+}
+
 export function BankInfoSection() {
   const { user, refreshUser } = useAuth() as AuthContextType;
   const { toast } = useToast();
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<BankInfo>({
     fullName: user?.fullName || '',
     bankType: 'Ngân hàng',
     bankName: user?.bankInfo?.bankName || '',
     accountNumber: user?.bankInfo?.accountNumber || ''
   });
   
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  
+  // Load bank info from user object or localStorage
   useEffect(() => {
-    if (user?.bankInfo) {
-      setFormData({
-        fullName: user.bankInfo.fullName || '',
-        bankType: user.bankInfo.bankType || '',
-        bankName: user.bankInfo.bankName || '',
-        accountNumber: user.bankInfo.accountNumber || '',
-      });
-      
-      // Luôn đặt pendingVerification = true để hiển thị dạng card nếu đã có thông tin
-      if (typeof window !== 'undefined') {
-        try {
-          const bankInfoToSave = {
-            ...user.bankInfo,
-            userId: user._id || user.id,
-            pendingVerification: true // Luôn đặt true để hiển thị dạng card
-          };
-          localStorage.setItem('userBankInfo', JSON.stringify(bankInfoToSave));
-        } catch (error) {
-          console.error('Error saving bank info to localStorage:', error);
-        }
-      }
-    } else if (typeof window !== 'undefined') {
-      // Thử lấy thông tin từ localStorage nếu không có từ user
+    // First try to get from localStorage
+    if (typeof window !== 'undefined') {
       const savedBankInfo = localStorage.getItem('userBankInfo');
       if (savedBankInfo) {
         try {
           const parsedInfo = JSON.parse(savedBankInfo);
-          // Kiểm tra xem thông tin có thuộc về user hiện tại không
+          // Verify this belongs to current user
           if (user && (parsedInfo.userId === user._id || parsedInfo.userId === user.id)) {
             setFormData({
               fullName: parsedInfo.fullName || parsedInfo.accountHolder || '',
-              bankType: parsedInfo.bankType || '',
+              bankType: parsedInfo.bankType || 'Ngân hàng',
               bankName: parsedInfo.bankName || '',
               accountNumber: parsedInfo.accountNumber || '',
+              verified: parsedInfo.verified || false,
+              pendingVerification: parsedInfo.pendingVerification || false,
+              submittedAt: parsedInfo.submittedAt,
+              verifiedAt: parsedInfo.verifiedAt
             });
-            
-            // Luôn đặt pendingVerification = true để hiển thị dạng card
-            const updatedInfo = {
-              ...parsedInfo,
-              pendingVerification: true
-            };
-            localStorage.setItem('userBankInfo', JSON.stringify(updatedInfo));
           }
         } catch (error) {
           console.error('Error parsing saved bank info:', error);
         }
       }
     }
+    
+    // Then override with user data if available (server data takes precedence)
+    if (user?.bankInfo) {
+      setFormData({
+        fullName: user.bankInfo.fullName || '',
+        bankType: user.bankInfo.bankType || 'Ngân hàng',
+        bankName: user.bankInfo.bankName || '',
+        accountNumber: user.bankInfo.accountNumber || '',
+        verified: user.bankInfo.verified || false,
+        pendingVerification: user.bankInfo.pendingVerification || false,
+        submittedAt: user.bankInfo.submittedAt,
+        verifiedAt: user.bankInfo.verifiedAt
+      });
+      
+      // Save to localStorage for future use
+      if (typeof window !== 'undefined') {
+        try {
+          const bankInfoToSave = {
+            ...user.bankInfo,
+            userId: user._id || user.id || '',
+            // Ensure verification flags are set
+            verified: user.bankInfo.verified || false,
+            pendingVerification: user.bankInfo.pendingVerification || false
+          };
+          localStorage.setItem('userBankInfo', JSON.stringify(bankInfoToSave));
+        } catch (error) {
+          console.error('Error saving bank info to localStorage:', error);
+        }
+      }
+    }
   }, [user]);
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   
   const getToken = () => {
     return localStorage.getItem('token') || localStorage.getItem('authToken');
