@@ -49,6 +49,13 @@ export default function WithdrawPage() {
   const [hasBankInfo, setHasBankInfo] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingBankInfo, setIsSavingBankInfo] = useState(false);
+  const [savedBankInfo, setSavedBankInfo] = useState<{
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+    verified?: boolean;
+  } | null>(null);
 
   const { data: settingsData, error: settingsError } = useSWR(
     token ? '/api/settings' : null,
@@ -73,11 +80,106 @@ export default function WithdrawPage() {
         setAccountHolder(user.bankInfo.accountHolder || '');
         setIsVerified(user.bankInfo.verified || false);
         setHasBankInfo(!!user.bankInfo.bankName && !!user.bankInfo.accountNumber && !!user.bankInfo.accountHolder);
+        
+        // Lưu thông tin ngân hàng đã xác minh vào state để hiển thị
+        if (user.bankInfo.verified) {
+          setSavedBankInfo({
+            bankName: user.bankInfo.bankName || '',
+            accountNumber: user.bankInfo.accountNumber || '',
+            accountHolder: user.bankInfo.accountHolder || '',
+            verified: true
+          });
+        }
       } else {
         setHasBankInfo(false);
       }
+      
+      // Lấy thông tin ngân hàng đã lưu từ localStorage
+      if (typeof window !== 'undefined') {
+        const savedBankData = localStorage.getItem('userBankInfo');
+        if (savedBankData) {
+          try {
+            const parsedData = JSON.parse(savedBankData);
+            if (parsedData.userId === user._id || parsedData.userId === user.id) {
+              if (!user.bankInfo?.verified) {
+                setSavedBankInfo(parsedData);
+                setBankName(parsedData.bankName || '');
+                setAccountNumber(parsedData.accountNumber || '');
+                setAccountHolder(parsedData.accountHolder || '');
+                setHasBankInfo(!!parsedData.bankName && !!parsedData.accountNumber && !!parsedData.accountHolder);
+              }
+            }
+          } catch (error) {
+            console.error('Lỗi khi đọc dữ liệu ngân hàng đã lưu:', error);
+          }
+        }
+      }
     }
   }, [user, isLoading, router, toast]);
+
+  // Hàm lưu thông tin ngân hàng người dùng
+  const saveBankInfo = async () => {
+    if (!bankName || !accountNumber || !accountHolder) {
+      toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập đầy đủ thông tin ngân hàng' });
+      return;
+    }
+
+    try {
+      setIsSavingBankInfo(true);
+      const res = await fetch('/api/user/save-bank-info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ bankName, accountNumber, accountHolder }),
+      });
+
+      const result = await res.json();
+      
+      if (res.ok) {
+        // Lưu thông tin vào localStorage
+        if (typeof window !== 'undefined' && user) {
+          localStorage.setItem('userBankInfo', JSON.stringify({
+            userId: user._id || user.id,
+            bankName,
+            accountNumber,
+            accountHolder,
+            pendingVerification: true,
+            savedAt: new Date().toISOString()
+          }));
+        }
+
+        // Cập nhật state
+        setSavedBankInfo({
+          bankName,
+          accountNumber,
+          accountHolder,
+          pendingVerification: true
+        });
+
+        toast({
+          title: 'Thành công',
+          description: 'Thông tin ngân hàng đã được lưu và đang chờ xác minh',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Lỗi',
+          description: result.message || 'Có lỗi xảy ra khi lưu thông tin ngân hàng',
+        });
+      }
+    } catch (error) {
+      console.error('Error saving bank info:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Lỗi',
+        description: 'Có lỗi xảy ra khi lưu thông tin ngân hàng',
+      });
+    } finally {
+      setIsSavingBankInfo(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!amount) {
@@ -195,35 +297,130 @@ export default function WithdrawPage() {
                 )}
               </div>
               
-              <Card className="bg-gray-700 border-gray-600">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg font-medium flex items-center gap-2">
-                    <Landmark className="h-5 w-5" />
-                    Thông tin ngân hàng
-                    {isVerified && (
+              {savedBankInfo && savedBankInfo.verified ? (
+                <Card className="bg-gray-700 border-gray-600">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg font-medium flex items-center gap-2">
+                      <Landmark className="h-5 w-5" />
+                      Thông tin ngân hàng
                       <span className="ml-2 text-xs bg-green-500/20 text-green-500 px-2 py-1 rounded-full flex items-center">
                         <CheckCircle className="h-3 w-3 mr-1" /> Đã xác minh
                       </span>
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-0">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                    <div>
-                      <p className="text-gray-400 text-sm">Ngân hàng:</p>
-                      <p className="text-white font-medium">{bankName}</p>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-0">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                      <div>
+                        <p className="text-gray-400 text-sm">Ngân hàng:</p>
+                        <p className="text-white font-medium">{savedBankInfo.bankName}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-sm">Số tài khoản:</p>
+                        <p className="text-white font-medium">{savedBankInfo.accountNumber}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-gray-400 text-sm">Chủ tài khoản:</p>
+                        <p className="text-white font-medium">{savedBankInfo.accountHolder}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-gray-400 text-sm">Số tài khoản:</p>
-                      <p className="text-white font-medium">{accountNumber}</p>
+                  </CardContent>
+                </Card>
+              ) : savedBankInfo && savedBankInfo.pendingVerification ? (
+                <Card className="bg-gray-700 border-gray-600">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg font-medium flex items-center gap-2">
+                      <Landmark className="h-5 w-5" />
+                      Thông tin ngân hàng
+                      <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded-full flex items-center">
+                        <AlertCircle className="h-3 w-3 mr-1" /> Đang chờ xác minh
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-0">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                      <div>
+                        <p className="text-gray-400 text-sm">Ngân hàng:</p>
+                        <p className="text-white font-medium">{savedBankInfo.bankName}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-sm">Số tài khoản:</p>
+                        <p className="text-white font-medium">{savedBankInfo.accountNumber}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-gray-400 text-sm">Chủ tài khoản:</p>
+                        <p className="text-white font-medium">{savedBankInfo.accountHolder}</p>
+                      </div>
                     </div>
-                    <div className="col-span-2">
-                      <p className="text-gray-400 text-sm">Chủ tài khoản:</p>
-                      <p className="text-white font-medium">{accountHolder}</p>
+                    <div className="bg-yellow-500/10 p-3 rounded-md border border-yellow-500/20">
+                      <p className="text-sm text-yellow-400">
+                        <AlertCircle className="h-4 w-4 inline mr-1" />
+                        Thông tin ngân hàng của bạn đang chờ xác minh. Bạn không thể rút tiền cho đến khi thông tin được xác minh.
+                      </p>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="bg-gray-700 border-gray-600">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg font-medium flex items-center gap-2">
+                      <Landmark className="h-5 w-5" />
+                      Thông tin ngân hàng
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-0">
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="bankName" className="text-gray-400">Tên ngân hàng</Label>
+                        <Input
+                          id="bankName"
+                          value={bankName}
+                          onChange={(e) => setBankName(e.target.value)}
+                          placeholder="Nhập tên ngân hàng"
+                          className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="accountNumber" className="text-gray-400">Số tài khoản</Label>
+                        <Input
+                          id="accountNumber"
+                          value={accountNumber}
+                          onChange={(e) => setAccountNumber(e.target.value)}
+                          placeholder="Nhập số tài khoản"
+                          className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="accountHolder" className="text-gray-400">Chủ tài khoản</Label>
+                        <Input
+                          id="accountHolder"
+                          value={accountHolder}
+                          onChange={(e) => setAccountHolder(e.target.value)}
+                          placeholder="Nhập tên chủ tài khoản"
+                          className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={saveBankInfo}
+                        disabled={!bankName || !accountNumber || !accountHolder || isSavingBankInfo}
+                      >
+                        {isSavingBankInfo ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Đang lưu...
+                          </>
+                        ) : (
+                          'Lưu thông tin ngân hàng'
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               
               <div className="bg-blue-500/10 p-4 rounded-lg border border-blue-500/20">
                 <p className="text-sm text-gray-300">
@@ -232,20 +429,22 @@ export default function WithdrawPage() {
                 </p>
               </div>
               
-              <Button
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5"
-                onClick={handleSubmit}
-                disabled={!amount || isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Đang xử lý...
-                  </>
-                ) : (
-                  'Gửi yêu cầu rút tiền'
-                )}
-              </Button>
+              {(savedBankInfo?.verified || isVerified) && (
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5"
+                  onClick={handleSubmit}
+                  disabled={!amount || isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    'Gửi yêu cầu rút tiền'
+                  )}
+                </Button>
+              )}
             </CardContent>
           )}
         </Card>

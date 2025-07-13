@@ -66,36 +66,18 @@ export async function GET(req: NextRequest) {
     
     // Nếu không có dữ liệu ngân hàng, thêm dữ liệu mẫu
     if (platformBanks.length === 0) {
-      const sampleBanks = [
-        {
-          code: 'VCB',
-          bankName: 'Vietcombank',
-          accountNumber: '1234567890',
-          accountHolder: 'NGUYEN VAN A',
-          branch: 'Hà Nội',
-          isActive: true
-        },
-        {
-          code: 'TCB',
-          bankName: 'Techcombank',
-          accountNumber: '9876543210',
-          accountHolder: 'NGUYEN VAN A',
-          branch: 'Hồ Chí Minh',
-          isActive: true
-        },
-        {
-          code: 'MB',
-          bankName: 'MB Bank',
-          accountNumber: '0123456789',
-          accountHolder: 'NGUYEN VAN A',
-          branch: 'Đà Nẵng',
-          isActive: true
-        }
-      ];
+      const sampleBank = {
+        code: 'VCB',
+        bankName: 'Vietcombank',
+        accountNumber: '1234567890',
+        accountHolder: 'NGUYEN VAN A',
+        branch: 'Hà Nội',
+        isActive: true
+      };
       
       // Thêm dữ liệu mẫu vào database
-      await db.collection('platform_banks').insertMany(sampleBanks);
-      platformBanks = sampleBanks;
+      await db.collection('platform_banks').insertOne(sampleBank);
+      platformBanks = [sampleBank];
     }
 
     return NextResponse.json({
