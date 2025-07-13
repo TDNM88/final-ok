@@ -17,60 +17,85 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Bạn cần đăng nhập' }, { status: 401 });
     }
 
-    const user = await verifyToken(token);
-    if (!user) {
+    const { userId, isValid } = await verifyToken(token);
+    if (!isValid || !userId) {
       return NextResponse.json({ message: 'Phiên đăng nhập hết hạn' }, { status: 401 });
     }
 
     const formData = await req.formData();
-    const file = formData.get('file') as File;
-    const type = formData.get('type') as 'front' | 'back';
+    const cccdFront = formData.get('cccdFront') as File;
+    const cccdBack = formData.get('cccdBack') as File;
 
-    if (!file || !type) {
+    if (!cccdFront || !cccdBack) {
       return NextResponse.json(
-        { message: 'Thiếu file hoặc loại file' },
+        { message: 'Vui lòng tải lên cả mặt trước và mặt sau CCCD/CMND' },
         { status: 400 }
       );
     }
 
-    // Verify file type
-    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+    // Verify front file
+    if (!ALLOWED_FILE_TYPES.includes(cccdFront.type)) {
       return NextResponse.json(
-        { message: 'Chỉ chấp nhận file ảnh định dạng JPG hoặc PNG' },
+        { message: 'Mặt trước: Chỉ chấp nhận file ảnh định dạng JPG hoặc PNG' },
         { status: 400 }
       );
     }
 
-    // Verify file size
-    if (file.size > MAX_FILE_SIZE) {
+    if (cccdFront.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { message: 'Kích thước file tối đa là 5MB' },
+        { message: 'Mặt trước: Kích thước file tối đa là 5MB' },
         { status: 400 }
       );
     }
 
-    // Generate a unique filename
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.userId}-${type}-${Date.now()}.${fileExt}`;
-    const pathname = `verification/${fileName}`;
+    // Verify back file
+    if (!ALLOWED_FILE_TYPES.includes(cccdBack.type)) {
+      return NextResponse.json(
+        { message: 'Mặt sau: Chỉ chấp nhận file ảnh định dạng JPG hoặc PNG' },
+        { status: 400 }
+      );
+    }
 
-    // Upload to Vercel Blob
-    const blob = await put(pathname, file, {
-      access: 'public', // Vercel Blob only supports 'public' access
-      addRandomSuffix: false,
-    });
+    if (cccdBack.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { message: 'Mặt sau: Kích thước file tối đa là 5MB' },
+        { status: 400 }
+      );
+    }
+
+    // Generate unique filenames
+    const frontFileExt = cccdFront.name.split('.').pop();
+    const backFileExt = cccdBack.name.split('.').pop();
+    const timestamp = Date.now();
+    
+    const frontFileName = `${userId}-front-${timestamp}.${frontFileExt}`;
+    const backFileName = `${userId}-back-${timestamp}.${backFileExt}`;
+    
+    const frontPathname = `verification/${frontFileName}`;
+    const backPathname = `verification/${backFileName}`;
+
+    // Upload both files to Vercel Blob
+    const [frontBlob, backBlob] = await Promise.all([
+      put(frontPathname, cccdFront, {
+        access: 'public',
+        addRandomSuffix: false,
+      }),
+      put(backPathname, cccdBack, {
+        access: 'public',
+        addRandomSuffix: false,
+      })
+    ]);
 
     // Update user document in MongoDB
     const client = await clientPromise;
     const db = client.db();
     
-    const updateField = type === 'front' ? 'verification.cccdFront' : 'verification.cccdBack';
-    
     await db.collection('users').updateOne(
-      { _id: new ObjectId(user.userId) },
+      { _id: new ObjectId(userId) },
       { 
         $set: { 
-          [updateField]: blob.url,
+          'verification.cccdFront': frontBlob.url,
+          'verification.cccdBack': backBlob.url,
           'verification.verified': false,
           'verification.status': 'pending',
           'verification.submittedAt': new Date()
@@ -85,7 +110,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       message: 'Tải lên thành công',
-      url: blob.url
+      urls: {
+        front: frontBlob.url,
+        back: backBlob.url
+      }
     });
 
   } catch (error) {

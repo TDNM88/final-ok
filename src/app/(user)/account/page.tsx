@@ -8,8 +8,11 @@ import { useToast } from '@/components/ui/use-toast';
 import { Menu, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { PersonalInfoSection } from './components/personal-info-section';
 import { BankInfoSection } from './components/bank-info-section';
+import { AccountOverviewSection } from './components/account-overview-section';
+import { IdentityVerificationSection } from './components/identity-verification-section';
+import { ChangePasswordSection } from './components/change-password-section';
 
-type TabType = 'overview' | 'bank' | 'verify' | 'password' | 'deposit' | 'withdraw';
+type TabType = 'overview' | 'bank' | 'verify' | 'password';
 
 interface AuthContextType {
   user: any;
@@ -142,20 +145,7 @@ export default function AccountPage() {
                 >
                   Đổi mật khẩu
                 </Button>
-                <Button
-                  variant={activeTab === 'deposit' ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => handleTabChange('deposit')}
-                >
-                  Nạp tiền
-                </Button>
-                <Button
-                  variant={activeTab === 'withdraw' ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  onClick={() => handleTabChange('withdraw')}
-                >
-                  Rút tiền
-                </Button>
+
                 <Button
                   variant="ghost"
                   className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-900/20"
@@ -172,44 +162,44 @@ export default function AccountPage() {
             {/* Overview Tab */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
+                <Suspense fallback={<div className="p-4 text-center">Đang tải thông tin tài khoản...</div>}>
+                  <AccountOverviewSection />
+                </Suspense>
+
                 <Suspense fallback={<div className="p-4 text-center">Đang tải thông tin cá nhân...</div>}>
                   <PersonalInfoSection />
                 </Suspense>
-
-                <div className="bg-gray-800/50 p-6 rounded-lg">
-                  <h3 className="text-lg font-medium mb-4">Trạng thái tài khoản</h3>
-                  <div className="space-y-3">
-                    <p>
-                      <span className="text-gray-400">Xác minh danh tính:</span>{' '}
-                      {isVerified ? (
-                        <span className="text-green-400 flex items-center">
-                          <CheckCircle className="w-4 h-4 mr-1" /> Đã xác minh
-                        </span>
-                      ) : (
-                        <span className="text-yellow-400">Chưa xác minh</span>
-                      )}
-                    </p>
-                    <p><span className="text-gray-400">Số dư khả dụng:</span> {getBalance(user?.balance).toLocaleString()} VNĐ</p>
-                    <p><span className="text-gray-400">Ngày tạo tài khoản:</span> {formatDate(user?.createdAt)}</p>
-                  </div>
-                </div>
               </div>
             )}
 
             {/* Bank Info Tab */}
             {activeTab === 'bank' && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h1 className="text-2xl font-bold">Thông tin ngân hàng</h1>
-                </div>
-                
+              <div className="bg-gray-800/50 p-6 rounded-lg">
                 <Suspense fallback={<div className="p-4 text-center">Đang tải thông tin ngân hàng...</div>}>
                   <BankInfoSection />
                 </Suspense>
               </div>
             )}
 
-            {/* Other tabs would go here */}
+            {/* Verify Tab */}
+            {activeTab === 'verify' && (
+              <div className="bg-gray-800/50 p-6 rounded-lg">
+                <Suspense fallback={<div className="p-4 text-center">Đang tải thông tin xác minh...</div>}>
+                  <IdentityVerificationSection />
+                </Suspense>
+              </div>
+            )}
+            
+            {/* Password Tab */}
+            {activeTab === 'password' && (
+              <div className="bg-gray-800/50 p-6 rounded-lg">
+                <Suspense fallback={<div className="p-4 text-center">Đang tải...</div>}>
+                  <ChangePasswordSection />
+                </Suspense>
+              </div>
+            )}
+            
+
           </div>
         </div>
       </div>

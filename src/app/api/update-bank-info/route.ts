@@ -62,6 +62,19 @@ export async function POST(req: NextRequest) {
     const db = client.db();
     
     console.log('[update-bank-info] Updating bank info for user:', userId);
+    
+    // Kiểm tra xem thông tin ngân hàng đã được xác minh chưa
+    const user = await db.collection('users').findOne(
+      { _id: new ObjectId(userId) }
+    );
+    
+    // Nếu thông tin ngân hàng đã được xác minh, không cho phép cập nhật
+    if (user?.bankInfo?.verified === true) {
+      return NextResponse.json({ 
+        success: false,
+        message: 'Thông tin ngân hàng đã được xác minh, không thể chỉnh sửa' 
+      }, { status: 403 });
+    }
 
     // Prepare update data with required fields
     const updateData: Record<string, any> = {

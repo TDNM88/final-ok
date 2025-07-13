@@ -56,6 +56,19 @@ export async function POST(request: Request) {
     // Kết nối đến database
     const db: Db = await getMongoDb();
     
+    // Kiểm tra xem thông tin ngân hàng đã được xác minh chưa
+    const user = await db.collection('users').findOne(
+      { _id: new ObjectId(decoded.userId) }
+    );
+    
+    // Nếu thông tin ngân hàng đã được xác minh, không cho phép cập nhật
+    if (user?.bankInfo?.verified === true) {
+      return NextResponse.json({ 
+        success: false,
+        message: 'Thông tin ngân hàng đã được xác minh, không thể chỉnh sửa' 
+      }, { status: 403 });
+    }
+    
     // Tạo đối tượng cập nhật cho ngân hàng
     const bankInfoUpdate: Record<string, any> = {};
     
@@ -63,6 +76,10 @@ export async function POST(request: Request) {
     Object.keys(updateData).forEach(key => {
       bankInfoUpdate[`bankInfo.${key}`] = updateData[key];
     });
+    
+    // Đặt trạng thái xác minh về false và đánh dấu là đang chờ xác minh
+    bankInfoUpdate['bankInfo.verified'] = false;
+    bankInfoUpdate['bankInfo.pendingVerification'] = true;
     
     // Cập nhật thông tin ngân hàng của người dùng
     const result = await db.collection('users').updateOne(
