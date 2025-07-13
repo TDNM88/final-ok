@@ -9,18 +9,23 @@ import Link from 'next/link';
 import { Menu, X, Loader2 } from 'lucide-react';
 
 export default function AccountPage() {
-  const { user, token, loading, logout } = useAuth();
+  const { user, isLoading, logout, refreshUser } = useAuth();
+  // Lấy token từ localStorage để sử dụng cho các API calls
+  const [token, setToken] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   
-  // Sử dụng useEffect để đảm bảo chỉ chạy ở phía client
+  // Sử dụng useEffect để đảm bảo chỉ chạy ở phía client và lấy token
   const [isClient, setIsClient] = useState(false);
   
   useEffect(() => {
     setIsClient(true);
+    // Lấy token từ localStorage
+    const storedToken = localStorage.getItem('token') || localStorage.getItem('authToken');
+    setToken(storedToken);
   }, []);
   
   // Sử dụng searchParams một cách an toàn
@@ -86,10 +91,10 @@ export default function AccountPage() {
       formData.append('document', file);
       formData.append('type', type);
       
-      const res = await fetch('/api/upload', {  // Sửa lại đường dẫn API
+      const res = await fetch('/api/upload-verification', {  // Sửa lại đường dẫn API
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': token ? `Bearer ${token}` : ''
         },
         body: formData
       });
@@ -145,8 +150,25 @@ export default function AccountPage() {
         accountNumber: user.bank.accountNumber || ''
       });
       
-      // Kiểm tra trạng thái xác minh
-      setIsVerified(user.bank.verified === true);
+      // Kiểm tra trạng thái xác minh từ user.bank hoặc localStorage
+      // Sử dụng type assertion vì thuộc tính verified không có trong type User.bank
+      const bankWithVerification = user.bank as any;
+      setIsVerified(bankWithVerification?.verified === true);
+      
+      // Thử đọc từ localStorage nếu không có thông tin xác minh từ user
+      if (bankWithVerification?.verified === undefined) {
+        try {
+          const savedBankInfo = localStorage.getItem('userBankInfo');
+          if (savedBankInfo) {
+            const parsedInfo = JSON.parse(savedBankInfo);
+            if (parsedInfo.userId === user.id) {
+              setIsVerified(parsedInfo.verified === true);
+            }
+          }
+        } catch (error) {
+          console.error('Error reading bank verification status from localStorage:', error);
+        }
+      }
     }
   }, [user]);
   
@@ -188,7 +210,7 @@ export default function AccountPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': token ? `Bearer ${token}` : ''
         },
         body: JSON.stringify({
           currentPassword: passwordForm.currentPassword,
@@ -240,7 +262,7 @@ export default function AccountPage() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          Authorization: token ? `Bearer ${token}` : ''
         },
         body: JSON.stringify({
           accountHolder: bankForm.fullName,
@@ -265,13 +287,13 @@ export default function AccountPage() {
   };
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!isLoading && !user) {
       toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng đăng nhập' });
       router.push('/login');
     }
-  }, [user, loading, router, toast]);
+  }, [user, isLoading, router, toast]);
 
-  if (loading) {
+  if (isLoading) {
     return <div className="flex justify-center items-center h-[60vh] text-gray-400">Đang tải...</div>;
   }
 
@@ -577,25 +599,48 @@ return (
                 <label className="block text-gray-400 mb-1">Mật khẩu hiện tại</label>
                 <input 
                   type="password" 
+                  name="currentPassword"
                   className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white" 
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
                 />
               </div>
               <div>
                 <label className="block text-gray-400 mb-1">Mật khẩu mới</label>
                 <input 
                   type="password" 
+                  name="newPassword"
                   className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white" 
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
                 />
               </div>
               <div>
                 <label className="block text-gray-400 mb-1">Xác nhận mật khẩu mới</label>
                 <input 
                   type="password" 
+                  name="confirmPassword"
                   className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white" 
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
                 />
               </div>
-              <Button className="mt-4 bg-blue-600 hover:bg-blue-700">
-                Cập nhật mật khẩu
+              {passwordError && (
+                <div className="text-red-500 text-sm">{passwordError}</div>
+              )}
+              <Button 
+                className="mt-4 bg-blue-600 hover:bg-blue-700" 
+                onClick={handleChangePassword}
+                disabled={isUpdatingPassword}
+              >
+                {isUpdatingPassword ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
+                    Đang xử lý...
+                  </>
+                ) : (
+                  'Cập nhật mật khẩu'
+                )}
               </Button>
             </div>
           </div>
