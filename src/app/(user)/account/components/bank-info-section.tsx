@@ -395,63 +395,153 @@ export function BankInfoSection() {
               className="bg-transparent border-gray-700 text-white"
             />
           </div>
+          <Button 
+            variant={isEditMode ? "destructive" : "outline"}
+            size="sm"
+            onClick={toggleEditMode}
+            className="flex items-center gap-2"
+          >
+            <PencilLine className="h-4 w-4" />
+            {isEditMode ? "Hủy" : "Chỉnh sửa"}
+          </Button>
+        )}
+      </div>
+      
+      {getBankInfoStatus()}
+      
+      {/* Bank Info Card View */}
+      {hasBankInfo && !isEditMode && (
+        <div className="bg-gray-800/40 rounded-xl border border-gray-700/50 overflow-hidden mt-6">
+          <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">
+            <h3 className="font-medium flex items-center gap-2">
+              <Building className="h-4 w-4 text-gray-400" />
+              Thông tin ngân hàng
+            </h3>
+            {isVerified && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Đã xác minh</span>}
+            {isPending && <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">Đang xác minh</span>}
+          </div>
           
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-red-500">
-              * Loại
-            </label>
-            <div className="relative">
-              <Input 
-                type="text" 
-                value={formData.bankType} 
-                readOnly
-                className="bg-transparent border-gray-700 text-white pr-10"
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+          <div className="p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <User className="h-4 w-4 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-400">Tên chủ tài khoản</p>
+                <p className="font-medium">{formData.fullName}</p>
               </div>
             </div>
+            
+            <div className="flex items-center gap-3">
+              <Building className="h-4 w-4 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-400">Ngân hàng</p>
+                <p className="font-medium">{formData.bankName}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <CreditCard className="h-4 w-4 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-400">Số tài khoản</p>
+                <p className="font-medium">{formData.accountNumber}</p>
+              </div>
+            </div>
+            
+            {formData.submittedAt && (
+              <div className="flex items-center gap-3">
+                <Clock className="h-4 w-4 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-400">Ngày gửi yêu cầu</p>
+                  <p className="font-medium">{formatDate(formData.submittedAt)}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Edit Form */}
+      {(isEditMode || !hasBankInfo) && (
+        <div className="bg-gray-800/40 rounded-xl border border-gray-700/50 overflow-hidden mt-6">
+          <div className="p-4 border-b border-gray-700/50">
+            <h3 className="font-medium">{hasBankInfo ? "Chỉnh sửa thông tin" : "Thêm thông tin ngân hàng"}</h3>
           </div>
           
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-red-500">
-              * Ngân hàng
-            </label>
-            <Input 
-              type="text" 
-              name="bankName" 
-              value={formData.bankName} 
-              onChange={handleInputChange} 
-              placeholder="Nhập tên ngân hàng"
-              className="bg-transparent border-gray-700 text-white"
-            />
+          <div className="p-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="fullName" className="block text-sm font-medium mb-2 text-gray-300">
+                  Tên chủ tài khoản
+                </label>
+                <Input
+                  id="fullName"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  placeholder="Nhập tên chủ tài khoản"
+                  disabled={isVerified || isPending}
+                  className="bg-gray-900/50 border-gray-700"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="bankName" className="block text-sm font-medium mb-2 text-gray-300">
+                  Tên ngân hàng
+                </label>
+                <Input
+                  id="bankName"
+                  name="bankName"
+                  value={formData.bankName}
+                  onChange={handleInputChange}
+                  placeholder="Ví dụ: Vietcombank, Techcombank..."
+                  disabled={isVerified || isPending}
+                  className="bg-gray-900/50 border-gray-700"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="accountNumber" className="block text-sm font-medium mb-2 text-gray-300">
+                  Số tài khoản
+                </label>
+                <Input
+                  id="accountNumber"
+                  name="accountNumber"
+                  value={formData.accountNumber}
+                  onChange={handleInputChange}
+                  placeholder="Nhập số tài khoản"
+                  disabled={isVerified || isPending}
+                  className="bg-gray-900/50 border-gray-700"
+                />
+              </div>
+              
+              <div className="pt-2 flex gap-3">
+                {isEditMode && (
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => setIsEditMode(false)}
+                    className="flex-1"
+                  >
+                    Hủy
+                  </Button>
+                )}
+                
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting || isVerified || isPending}
+                  className={isEditMode ? "flex-1" : "w-full"}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em]"></span>
+                      Đang xử lý...
+                    </>
+                  ) : hasBankInfo ? "Cập nhật thông tin" : "Lưu thông tin"}
+                </Button>
+              </div>
+            </form>
           </div>
-          
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-red-500">
-              * Số tài khoản
-            </label>
-            <Input 
-              type="text" 
-              name="accountNumber" 
-              value={formData.accountNumber} 
-              onChange={handleInputChange} 
-              placeholder="Nhập số tài khoản ngân hàng của bạn"
-              className="bg-transparent border-gray-700 text-white"
-            />
-          </div>
-          
-          <Button 
-            type="submit" 
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
-            disabled={isSubmitting || isSaving}
-          >
-            {isSubmitting || isSaving ? 'Đang xử lý...' : 'Xác nhận'}
-          </Button>
-        </form>
+        </div>
       )}
     </div>
-  );
-}
+  </div>
+);

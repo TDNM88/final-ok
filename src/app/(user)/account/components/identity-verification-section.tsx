@@ -1,29 +1,90 @@
 "use client";
 
-import React, { useState, FormEvent, useRef } from 'react';
+import React, { useState, FormEvent, useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { Upload } from 'lucide-react';
+import { 
+  CheckCircle, 
+  AlertTriangle, 
+  XCircle, 
+  Upload, 
+  User, 
+  Clock,
+  Camera,
+  FileCheck,
+  ShieldCheck,
+  ShieldAlert,
+  Info,
+  FileWarning
+} from 'lucide-react';
 
 interface AuthContextType {
   user: any;
   refreshUser: () => Promise<void>;
 }
 
+interface VerificationStatus {
+  verified?: boolean;
+  pendingVerification?: boolean;
+  submittedAt?: string;
+  verifiedAt?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  frontIdUrl?: string;
+  backIdUrl?: string;
+}
+
 export function IdentityVerificationSection() {
   const { user, refreshUser } = useAuth() as AuthContextType;
   const { toast } = useToast();
   
-  const [fullName, setFullName] = useState(user?.fullName || '');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const frontIdFileRef = useRef<HTMLInputElement>(null);
-  const backIdFileRef = useRef<HTMLInputElement>(null);
+  const [formData, setFormData] = useState({
+    fullName: user?.fullName || '',
+  });
   
   const [frontIdFile, setFrontIdFile] = useState<File | null>(null);
   const [backIdFile, setBackIdFile] = useState<File | null>(null);
+  const [frontIdPreview, setFrontIdPreview] = useState<string>('');
+  const [backIdPreview, setBackIdPreview] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const frontIdInputRef = useRef<HTMLInputElement>(null);
+  const backIdInputRef = useRef<HTMLInputElement>(null);
+  
+  // Verification status
+  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>({
+    verified: user?.verification?.verified || false,
+    pendingVerification: user?.verification?.pendingVerification || false,
+    submittedAt: user?.verification?.submittedAt,
+    verifiedAt: user?.verification?.verifiedAt,
+    rejectedAt: user?.verification?.rejectedAt,
+    rejectionReason: user?.verification?.rejectionReason,
+    frontIdUrl: user?.verification?.frontIdUrl,
+    backIdUrl: user?.verification?.backIdUrl
+  });
+  
+  // Update verification status when user data changes
+  useEffect(() => {
+    if (user?.verification) {
+      setVerificationStatus({
+        verified: user.verification.verified || false,
+        pendingVerification: user.verification.pendingVerification || false,
+        submittedAt: user.verification.submittedAt,
+        verifiedAt: user.verification.verifiedAt,
+        rejectedAt: user.verification.rejectedAt,
+        rejectionReason: user.verification.rejectionReason,
+        frontIdUrl: user.verification.frontIdUrl,
+        backIdUrl: user.verification.backIdUrl
+      });
+      
+      // Update form data
+      setFormData({
+        fullName: user.fullName || '',
+      });
+    }
+  }, [user]);
   
   const getToken = () => {
     return localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -35,25 +96,45 @@ export function IdentityVerificationSection() {
     return new Date(dateString).toLocaleDateString('vi-VN');
   };
   
-  const handleFrontIdUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle front ID file selection
+  const handleFrontIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setFrontIdFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setFrontIdFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFrontIdPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
   
-  const handleBackIdUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle back ID file selection
+  const handleBackIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setBackIdFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setBackIdFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setBackIdPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
   
+  // Handle form submission
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
-    if (!fullName) {
+    // Validation
+    if (!formData.fullName) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng nhập họ tên thật",
+        description: "Vui lòng nhập họ tên đầy đủ",
         variant: "destructive"
       });
       return;
@@ -62,7 +143,17 @@ export function IdentityVerificationSection() {
     if (!frontIdFile || !backIdFile) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng tải lên ảnh mặt trước và mặt sau thẻ căn cước",
+        description: "Vui lòng tải lên ảnh mặt trước và mặt sau CMND/CCCD",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if already verified or pending
+    if (verificationStatus.verified || verificationStatus.pendingVerification) {
+      toast({
+        title: "Không thể gửi",
+        description: "Yêu cầu xác minh đã được gửi hoặc đã được xác minh",
         variant: "destructive"
       });
       return;
@@ -71,40 +162,21 @@ export function IdentityVerificationSection() {
     setIsSubmitting(true);
     
     try {
-      // Cập nhật họ tên trước
-      if (fullName !== user?.fullName) {
-        const nameResponse = await fetch('/api/update-user-info', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${getToken()}`
-          },
-          body: JSON.stringify({
-            fullName
-          })
-        });
-        
-        if (!nameResponse.ok) {
-          throw new Error('Không thể cập nhật họ tên');
-        }
-      }
+      const formDataToSubmit = new FormData();
+      formDataToSubmit.append('fullName', formData.fullName);
+      formDataToSubmit.append('frontId', frontIdFile);
+      formDataToSubmit.append('backId', backIdFile);
       
-      // Tải lên ảnh CCCD/CMND
-      const formData = new FormData();
-      formData.append('cccdFront', frontIdFile);
-      formData.append('cccdBack', backIdFile);
-      
-      const response = await fetch('/api/upload-verification', {
+      const response = await fetch('/api/verify-identity', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getToken()}`
         },
-        body: formData
+        body: formDataToSubmit
       });
       
-      const data = await response.json();
-      
       if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
         throw new Error(data.message || 'Có lỗi xảy ra khi tải lên ảnh xác minh');
       }
       
