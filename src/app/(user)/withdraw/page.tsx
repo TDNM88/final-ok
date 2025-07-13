@@ -342,17 +342,32 @@ export default function WithdrawPage() {
                     {(savedBankInfo?.verified || savedBankInfo?.pendingVerification) ? (
                       <>
                         {/* Hiển thị thông tin ngân hàng dạng text khi đã xác minh hoặc đang chờ xác minh */}
-                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-                          <div className="text-gray-400 text-sm mb-1" aria-readonly="true">Ngân hàng</div>
-                          <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{bankName}</div>
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-400">Ngân hàng</label>
+                          <Input 
+                            type="text" 
+                            value={bankName} 
+                            readOnly 
+                            className="bg-transparent border-gray-700 text-white" 
+                          />
                         </div>
-                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-                          <div className="text-gray-400 text-sm mb-1" aria-readonly="true">Số tài khoản</div>
-                          <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{accountNumber}</div>
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-400">Số tài khoản</label>
+                          <Input 
+                            type="text" 
+                            value={accountNumber} 
+                            readOnly 
+                            className="bg-transparent border-gray-700 text-white" 
+                          />
                         </div>
-                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-                          <div className="text-gray-400 text-sm mb-1" aria-readonly="true">Chủ tài khoản</div>
-                          <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{accountHolder}</div>
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-400">Chủ tài khoản</label>
+                          <Input 
+                            type="text" 
+                            value={accountHolder} 
+                            readOnly 
+                            className="bg-transparent border-gray-700 text-white" 
+                          />
                         </div>
                       </>
                     ) : (

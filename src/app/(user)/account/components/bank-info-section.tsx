@@ -208,36 +208,48 @@ export function BankInfoSection() {
             <label className="block text-sm font-medium text-red-500">
               * Họ tên
             </label>
-            <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-              <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{formData.fullName}</div>
-            </div>
+            <Input 
+              type="text" 
+              value={formData.fullName} 
+              readOnly 
+              className="bg-transparent border-gray-700 text-white" 
+            />
           </div>
           
           <div className="space-y-1">
             <label className="block text-sm font-medium text-red-500">
               * Loại
             </label>
-            <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-              <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{formData.bankType}</div>
-            </div>
+            <Input 
+              type="text" 
+              value={formData.bankType} 
+              readOnly 
+              className="bg-transparent border-gray-700 text-white" 
+            />
           </div>
           
           <div className="space-y-1">
             <label className="block text-sm font-medium text-red-500">
               * Ngân hàng
             </label>
-            <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-              <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{formData.bankName}</div>
-            </div>
+            <Input 
+              type="text" 
+              value={formData.bankName} 
+              readOnly 
+              className="bg-transparent border-gray-700 text-white" 
+            />
           </div>
           
           <div className="space-y-1">
             <label className="block text-sm font-medium text-red-500">
               * Số tài khoản
             </label>
-            <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
-              <div className="text-white font-medium" contentEditable="false" aria-readonly="true">{formData.accountNumber}</div>
-            </div>
+            <Input 
+              type="text" 
+              value={formData.accountNumber} 
+              readOnly 
+              className="bg-transparent border-gray-700 text-white" 
+            />
           </div>
           
           <div className="bg-blue-900/20 p-3 rounded-md border border-blue-900/30">
