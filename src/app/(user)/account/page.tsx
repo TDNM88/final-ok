@@ -14,7 +14,8 @@ import {
   KeyRound,
   LogOut,
   ChevronRight,
-  Bell
+  Bell,
+  RefreshCw
 } from 'lucide-react';
 
 import { BankInfoSection } from './components/bank-info-section';
@@ -39,6 +40,7 @@ export default function AccountPage() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState({
     verified: false,
     cccdFront: '',
@@ -83,6 +85,26 @@ export default function AccountPage() {
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
+  };
+
+  const handleRefreshData = async () => {
+    try {
+      setIsRefreshing(true);
+      await refreshUser();
+      toast({
+        title: "Thành công",
+        description: "Đã cập nhật thông tin tài khoản"
+      });
+    } catch (error) {
+      console.error('Refresh error:', error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể cập nhật thông tin tài khoản",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleLogout = async () => {
