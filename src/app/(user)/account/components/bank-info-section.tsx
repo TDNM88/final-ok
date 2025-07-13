@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,31 @@ export function BankInfoSection() {
     accountNumber: user?.bankInfo?.accountNumber || ''
   });
   
+  // Load data from localStorage on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && user) {
+      const savedBankData = localStorage.getItem('userBankInfo');
+      if (savedBankData) {
+        try {
+          const parsedData = JSON.parse(savedBankData);
+          if (parsedData.userId === user._id || parsedData.userId === user.id) {
+            // Chỉ sử dụng dữ liệu từ localStorage nếu chưa có dữ liệu từ server
+            if (!user?.bankInfo?.verified && !user?.bankInfo?.pendingVerification) {
+              setFormData(prev => ({
+                ...prev,
+                bankName: parsedData.bankName || prev.bankName,
+                accountNumber: parsedData.accountNumber || prev.accountNumber,
+                fullName: parsedData.accountHolder || prev.fullName
+              }));
+            }
+          }
+        } catch (error) {
+          console.error('Lỗi khi đọc dữ liệu ngân hàng đã lưu:', error);
+        }
+      }
+    }
+  }, [user]);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const getToken = () => {
@@ -46,6 +71,16 @@ export function BankInfoSection() {
   
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    
+    // Kiểm tra nếu thông tin đã được xác nhận hoặc đang chờ xác minh thì không cho phép thay đổi
+    if (isVerified || isPending) {
+      toast({
+        title: "Không thể thay đổi",
+        description: "Thông tin ngân hàng đã được xác nhận hoặc đang chờ xác minh, không thể thay đổi",
+        variant: "destructive"
+      });
+      return;
+    }
     
     if (!formData.fullName || !formData.bankName || !formData.accountNumber) {
       toast({
@@ -78,9 +113,21 @@ export function BankInfoSection() {
         throw new Error(data.message || 'Đã xảy ra lỗi');
       }
       
+      // Lưu thông tin vào localStorage
+      if (typeof window !== 'undefined' && user) {
+        localStorage.setItem('userBankInfo', JSON.stringify({
+          userId: user._id || user.id || '',
+          bankName: formData.bankName,
+          accountNumber: formData.accountNumber,
+          accountHolder: formData.fullName,
+          pendingVerification: true,
+          savedAt: new Date().toISOString()
+        }));
+      }
+      
       toast({
         title: "Thành công",
-        description: "Thông tin ngân hàng đã được cập nhật"
+        description: "Thông tin ngân hàng đã được cập nhật và đang chờ xác minh"
       });
       
       refreshUser();
@@ -99,9 +146,36 @@ export function BankInfoSection() {
   // Check if bank info is verified
   const isVerified = user?.bankInfo?.verified || false;
   const isPending = user?.bankInfo?.pendingVerification || false;
+  
+  // Thêm thông báo cho người dùng khi thông tin đã được xác minh hoặc đang chờ xác minh
+  const getBankInfoStatus = () => {
+    if (isVerified) {
+      return (
+        <div className="mb-4 p-3 bg-green-900/20 border border-green-900/30 rounded-md">
+          <p className="flex items-center text-green-400">
+            <CheckCircle className="w-4 h-4 mr-2" /> 
+            Thông tin ngân hàng đã được xác minh. Bạn không thể thay đổi thông tin này.
+          </p>
+        </div>
+      );
+    } else if (isPending) {
+      return (
+        <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-900/30 rounded-md">
+          <p className="flex items-center text-yellow-400">
+            <AlertTriangle className="w-4 h-4 mr-2" /> 
+            Thông tin ngân hàng đang chờ xác minh. Bạn không thể thay đổi thông tin này.
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="bg-gray-900 text-white">
+      {/* Bank info status message */}
+      {getBankInfoStatus()}
+      
       {/* User info header */}
       <div className="mb-6">
         <h2 className="text-xl font-semibold mb-1">
