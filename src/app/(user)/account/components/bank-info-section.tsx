@@ -50,6 +50,7 @@ export function BankInfoSection() {
   }, [user]);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const getToken = () => {
     return localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -92,6 +93,7 @@ export function BankInfoSection() {
     }
     
     setIsSubmitting(true);
+    setIsSaving(true); // Bắt đầu trạng thái loading
     
     try {
       const response = await fetch('/api/update-bank-info', {
@@ -130,6 +132,11 @@ export function BankInfoSection() {
         description: "Thông tin ngân hàng đã được cập nhật và đang chờ xác minh"
       });
       
+      setFormData(prev => ({
+        ...prev,
+        pendingVerification: true
+      }));
+      
       refreshUser();
       
     } catch (error) {
@@ -140,6 +147,7 @@ export function BankInfoSection() {
       });
     } finally {
       setIsSubmitting(false);
+      setIsSaving(false); // Kết thúc trạng thái loading
     }
   };
   
@@ -201,7 +209,7 @@ export function BankInfoSection() {
       </div>
       
       {/* Bank info form or display */}
-      {isVerified || isPending ? (
+      {isVerified || isPending || isSaving ? (
         <div className="space-y-4">
           {/* Hiển thị thông tin dạng text khi đã xác minh hoặc đang chờ xác minh */}
           <div className="space-y-1">
@@ -254,7 +262,14 @@ export function BankInfoSection() {
           
           <div className="bg-blue-900/20 p-3 rounded-md border border-blue-900/30">
             <p className="text-sm text-blue-400">
-              Thông tin ngân hàng {isVerified ? 'đã được xác minh' : 'đang chờ xác minh'} và không thể chỉnh sửa.
+              {isSaving ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                  <span>Đang lưu thông tin ngân hàng...</span>
+                </div>
+              ) : (
+                <>Thông tin ngân hàng {isVerified ? 'đã được xác minh' : 'đang chờ xác minh'} và không thể chỉnh sửa.</>
+              )}
             </p>
           </div>
         </div>
@@ -324,9 +339,9 @@ export function BankInfoSection() {
           <Button 
             type="submit" 
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSaving}
           >
-            {isSubmitting ? 'Đang xử lý...' : 'Xác nhận'}
+            {isSubmitting || isSaving ? 'Đang xử lý...' : 'Xác nhận'}
           </Button>
         </form>
       )}

@@ -130,44 +130,56 @@ export default function WithdrawPage() {
   const saveBankInfo = async () => {
     // Kiểm tra nếu thông tin đã được xác nhận hoặc đang chờ xác minh thì không cho phép thay đổi
     if (savedBankInfo?.verified || savedBankInfo?.pendingVerification) {
-      toast({ 
-        variant: 'destructive', 
-        title: 'Không thể thay đổi', 
-        description: 'Thông tin ngân hàng đã được xác nhận hoặc đang chờ xác minh, không thể thay đổi' 
+      toast({
+        title: "Thiếu thông tin",
+        description: "Vui lòng điền đầy đủ thông tin ngân hàng",
+        variant: "destructive",
       });
       return;
     }
-    
-    if (!bankName || !accountNumber || !accountHolder) {
-      toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập đầy đủ thông tin ngân hàng' });
+
+    if (savedBankInfo?.verified || savedBankInfo?.pendingVerification) {
+      toast({
+        title: "Không thể thay đổi",
+        description: "Thông tin ngân hàng đã được xác nhận hoặc đang chờ xác minh, không thể thay đổi",
+        variant: "destructive",
+      });
       return;
     }
 
+    setIsSavingBankInfo(true); // Bắt đầu trạng thái loading
+
     try {
-      setIsSavingBankInfo(true);
-      const res = await fetch('/api/user/save-bank-info', {
+      const response = await fetch('/api/user/save-bank-info', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ bankName, accountNumber, accountHolder }),
+        body: JSON.stringify({
+          bankName,
+          accountNumber,
+          accountHolder
+        })
       });
 
-      const result = await res.json();
-      
-      if (res.ok) {
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Thành công",
+          description: "Đã lưu thông tin ngân hàng",
+        });
+
         // Lưu thông tin vào localStorage
-        if (typeof window !== 'undefined' && user) {
-          localStorage.setItem('userBankInfo', JSON.stringify({
-            userId: user._id || user.id || '',
-            bankName,
-            accountNumber,
-            accountHolder,
-            pendingVerification: true,
-            savedAt: new Date().toISOString()
-          }));
-        }
+        localStorage.setItem('userBankInfo', JSON.stringify({
+          userId: user?._id || user?.id || '',
+          bankName,
+          accountNumber,
+          accountHolder,
+          pendingVerification: true,
+          savedAt: new Date().toISOString()
+        }));
 
         // Cập nhật state
         setSavedBankInfo({
@@ -175,22 +187,12 @@ export default function WithdrawPage() {
           accountNumber,
           accountHolder,
           pendingVerification: true
-        } as {
-          bankName: string;
-          accountNumber: string;
-          accountHolder: string;
-          pendingVerification?: boolean;
-        });
-
-        toast({
-          title: 'Thành công',
-          description: 'Thông tin ngân hàng đã được lưu và đang chờ xác minh',
         });
       } else {
         toast({
-          variant: 'destructive',
-          title: 'Lỗi',
-          description: result.message || 'Có lỗi xảy ra khi lưu thông tin ngân hàng',
+          title: "Lỗi",
+          description: data.message || "Không thể lưu thông tin ngân hàng",
+          variant: "destructive",
         });
       }
     } catch (error) {
@@ -341,9 +343,9 @@ export default function WithdrawPage() {
                 </CardHeader>
                 <CardContent className="space-y-4 pt-0">
                   <div className="space-y-4">
-                    {(savedBankInfo?.verified || savedBankInfo?.pendingVerification) ? (
+                    {(savedBankInfo?.verified || savedBankInfo?.pendingVerification || isSavingBankInfo) ? (
                       <>
-                        {/* Hiển thị thông tin ngân hàng dạng text khi đã xác minh hoặc đang chờ xác minh */}
+                        {/* Hiển thị thông tin ngân hàng dạng text khi đã xác minh hoặc đang chờ xác minh hoặc đang lưu */}
                         <div className="space-y-1">
                           <label className="block text-sm font-medium text-gray-400">Ngân hàng</label>
                           <Input 
@@ -371,45 +373,55 @@ export default function WithdrawPage() {
                             className="bg-transparent border-gray-700 text-white" 
                           />
                         </div>
+                        {isSavingBankInfo && (
+                          <div className="bg-blue-900/20 p-3 rounded-md border border-blue-900/30 mt-2">
+                            <div className="flex items-center space-x-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              <p className="text-sm text-blue-400">Đang lưu thông tin ngân hàng...</p>
+                            </div>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>
                         {/* Hiển thị form nhập liệu khi chưa xác minh */}
-                        <div>
-                          <Label htmlFor="bankName" className="text-gray-400">Tên ngân hàng</Label>
-                          <Input
-                            id="bankName"
-                            value={bankName}
-                            onChange={(e) => setBankName(e.target.value)}
-                            placeholder="Nhập tên ngân hàng"
-                            className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                            required
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-400">Ngân hàng</label>
+                          <Input 
+                            type="text" 
+                            value={bankName} 
+                            onChange={(e) => setBankName(e.target.value)} 
+                            placeholder="Nhập tên ngân hàng" 
+                            className="bg-transparent border-gray-700 text-white" 
                           />
                         </div>
-                        
-                        <div>
-                          <Label htmlFor="accountNumber" className="text-gray-400">Số tài khoản</Label>
-                          <Input
-                            id="accountNumber"
-                            value={accountNumber}
-                            onChange={(e) => setAccountNumber(e.target.value)}
-                            placeholder="Nhập số tài khoản"
-                            className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                            required
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-400">Số tài khoản</label>
+                          <Input 
+                            type="text" 
+                            value={accountNumber} 
+                            onChange={(e) => setAccountNumber(e.target.value)} 
+                            placeholder="Nhập số tài khoản" 
+                            className="bg-transparent border-gray-700 text-white" 
                           />
                         </div>
-                        
-                        <div>
-                          <Label htmlFor="accountHolder" className="text-gray-400">Chủ tài khoản</Label>
-                          <Input
-                            id="accountHolder"
-                            value={accountHolder}
-                            onChange={(e) => setAccountHolder(e.target.value)}
-                            placeholder="Nhập tên chủ tài khoản"
-                            className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                            required
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-400">Chủ tài khoản</label>
+                          <Input 
+                            type="text" 
+                            value={accountHolder} 
+                            onChange={(e) => setAccountHolder(e.target.value)} 
+                            placeholder="Nhập tên chủ tài khoản" 
+                            className="bg-transparent border-gray-700 text-white" 
                           />
                         </div>
+                        <Button 
+                          onClick={saveBankInfo} 
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
+                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
+                        >
+                          Lưu thông tin ngân hàng
+                        </Button>
                       </>
                     )}
                     
@@ -421,25 +433,6 @@ export default function WithdrawPage() {
                           Thông tin ngân hàng đang chờ xác minh
                         </p>
                       </div>
-                    )}
-                    
-                    {/* Nút lưu thông tin */}
-                    {!(savedBankInfo?.verified || savedBankInfo?.pendingVerification) && (
-                      <Button
-                        type="button"
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                        onClick={saveBankInfo}
-                        disabled={!bankName || !accountNumber || !accountHolder || isSavingBankInfo}
-                      >
-                        {isSavingBankInfo ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Đang lưu...
-                          </>
-                        ) : (
-                          'Lưu thông tin ngân hàng'
-                        )}
-                      </Button>
                     )}
                   </div>
                 </CardContent>
@@ -456,9 +449,9 @@ export default function WithdrawPage() {
                 <Button
                   className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5"
                   onClick={handleSubmit}
-                  disabled={!amount || isSubmitting}
+                  disabled={!amount || isSubmitting || isSavingBankInfo}
                 >
-                  {isSubmitting ? (
+                  {isSubmitting || isSavingBankInfo ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                       Đang xử lý...
