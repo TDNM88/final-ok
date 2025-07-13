@@ -12,9 +12,7 @@ import {
   CreditCard, 
   Building, 
   User, 
-  Clock,
-  ShieldCheck,
-  Upload
+  Clock
 } from 'lucide-react';
 
 interface AuthContextType {
@@ -32,14 +30,7 @@ interface BankInfo {
   verifiedAt?: string;
 }
 
-interface IdentityInfo {
-  frontImage: string;
-  backImage: string;
-  verified: boolean;
-  pendingVerification: boolean;
-  submittedAt: string;
-  verifiedAt: string;
-}
+// Interface IdentityInfo đã được xóa vì không còn cần thiết
 
 export function BankInfoSection() {
   const { user, refreshUser } = useAuth() as AuthContextType;
@@ -53,22 +44,8 @@ export function BankInfoSection() {
     pendingVerification: false
   });
 
-  const [identityInfo, setIdentityInfo] = useState<IdentityInfo>({
-    frontImage: '',
-    backImage: '',
-    verified: false,
-    pendingVerification: false,
-    submittedAt: '',
-    verifiedAt: ''
-  });
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [frontImageFile, setFrontImageFile] = useState<File | null>(null);
-  const [backImageFile, setBackImageFile] = useState<File | null>(null);
-  const [frontImagePreview, setFrontImagePreview] = useState<string>('');
-  const [backImagePreview, setBackImagePreview] = useState<string>('');
-  const [isUploadingIdentity, setIsUploadingIdentity] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -93,60 +70,32 @@ export function BankInfoSection() {
         }
       }
 
-      // Load identity info
-      const savedIdentityInfo = localStorage.getItem('userIdentityInfo');
-      if (savedIdentityInfo) {
-        try {
-          const parsedInfo = JSON.parse(savedIdentityInfo);
-          if (user && (parsedInfo.userId === user._id || parsedInfo.userId === user.id)) {
-            setIdentityInfo(prev => ({
-              ...prev,
-              ...parsedInfo,
-              verified: parsedInfo.verified ?? false,
-              pendingVerification: parsedInfo.pendingVerification ?? false
-            }));
-          }
-        } catch (error) {
-          console.error('Error parsing saved identity info:', error);
+      // Update from user data if available
+      if (user) {
+        // Bank info
+        if (user.bankInfo) {
+          const bankInfo = {
+            fullName: user.bankInfo.fullName || '',
+            bankName: user.bankInfo.bankName || '',
+            accountNumber: user.bankInfo.accountNumber || '',
+            verified: user.bankInfo.verified || false,
+            pendingVerification: user.bankInfo.pendingVerification || false,
+            submittedAt: user.bankInfo.submittedAt || '',
+            verifiedAt: user.bankInfo.verifiedAt || ''
+          };
+          
+          setFormData(bankInfo);
+          
+          // Save to localStorage
+          localStorage.setItem('userBankInfo', JSON.stringify({
+            ...bankInfo,
+            userId: user._id || user.id
+          }));
         }
       }
     };
 
     loadStoredData();
-
-    // Update with server data if available
-    if (user?.bankInfo) {
-      const bankInfo = {
-        fullName: user.bankInfo.fullName || '',
-        bankName: user.bankInfo.bankName || '',
-        accountNumber: user.bankInfo.accountNumber || '',
-        verified: user.bankInfo.verified ?? false,
-        pendingVerification: user.bankInfo.pendingVerification ?? false,
-        submittedAt: user.bankInfo.submittedAt,
-        verifiedAt: user.bankInfo.verifiedAt
-      };
-      setFormData(bankInfo);
-      localStorage.setItem('userBankInfo', JSON.stringify({
-        ...bankInfo,
-        userId: user._id || user.id
-      }));
-    }
-
-    if (user?.identityInfo) {
-      const newIdentityInfo = {
-        frontImage: user.identityInfo.frontImage || '',
-        backImage: user.identityInfo.backImage || '',
-        verified: user.identityInfo.verified ?? false,
-        pendingVerification: user.identityInfo.pendingVerification ?? false,
-        submittedAt: user.identityInfo.submittedAt || '',
-        verifiedAt: user.identityInfo.verifiedAt || ''
-      };
-      setIdentityInfo(newIdentityInfo);
-      localStorage.setItem('userIdentityInfo', JSON.stringify({
-        ...newIdentityInfo,
-        userId: user._id || user.id
-      }));
-    }
   }, [user]);
 
   const getToken = useCallback(() => {
@@ -272,67 +221,6 @@ export function BankInfoSection() {
     }
   }, [formData, user, getToken, refreshUser, toast]);
 
-  const handleIdentityUpload = useCallback(async () => {
-    if (!frontImageFile || !backImageFile) {
-      toast({
-        title: "Thiếu thông tin",
-        description: "Vui lòng tải lên cả hai ảnh CMND/CCCD",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsUploadingIdentity(true);
-    try {
-      const formData = new FormData();
-      formData.append('frontImage', frontImageFile);
-      formData.append('backImage', backImageFile);
-
-      const response = await fetch('/api/upload-identity-verification', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${getToken()}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload identity images');
-      }
-
-      const data = await response.json();
-      const newIdentityInfo = {
-        frontImage: data.frontImageUrl || frontImagePreview,
-        backImage: data.backImageUrl || backImagePreview,
-        verified: false,
-        pendingVerification: true,
-        submittedAt: new Date().toISOString(),
-        verifiedAt: ''
-      };
-
-      setIdentityInfo(newIdentityInfo);
-      localStorage.setItem('userIdentityInfo', JSON.stringify({
-        ...newIdentityInfo,
-        userId: user._id || user.id
-      }));
-
-      await refreshUser();
-      toast({
-        title: "Thành công",
-        description: "Yêu cầu xác minh danh tính đã được gửi"
-      });
-    } catch (error) {
-      console.error('Error uploading identity:', error);
-      toast({
-        title: "Lỗi",
-        description: "Không thể tải lên ảnh xác minh",
-        variant: "destructive"
-      });
-    } finally {
-      setIsUploadingIdentity(false);
-    }
-  }, [frontImageFile, backImageFile, frontImagePreview, backImagePreview, getToken, user, refreshUser, toast]);
-
   const isVerified = formData.verified || false;
   const isPending = formData.pendingVerification && !isVerified;
   const hasBankInfo = formData.bankName && formData.accountNumber;
@@ -457,178 +345,7 @@ export function BankInfoSection() {
         </div>
       )}
 
-      <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700/50 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5" />
-            Xác minh danh tính
-          </h3>
-          <span className={`text-xs px-3 py-1 rounded-full
-            ${identityInfo.verified ? 'bg-green-500/20 text-green-400' :
-              identityInfo.pendingVerification ? 'bg-amber-500/20 text-amber-400' :
-              'bg-gray-500/20 text-gray-400'}`}>
-            {identityInfo.verified ? 'Đã xác minh' : 
-             identityInfo.pendingVerification ? 'Đang xác minh' : 
-             'Chưa xác minh'}
-          </span>
-        </div>
-
-        {(identityInfo.verified || identityInfo.pendingVerification) && (
-          <div className="space-y-4">
-            {(identityInfo.frontImage || identityInfo.backImage) && (
-              <div className="grid grid-cols-2 gap-4">
-                {identityInfo.frontImage && (
-                  <div className="border border-gray-700 rounded-lg overflow-hidden">
-                    <div className="p-2 bg-gray-800/50 text-xs text-gray-400">Mặt trước CMND/CCCD</div>
-                    <img src={identityInfo.frontImage} alt="Mặt trước" className="w-full h-auto" />
-                  </div>
-                )}
-                {identityInfo.backImage && (
-                  <div className="border border-gray-700 rounded-lg overflow-hidden">
-                    <div className="p-2 bg-gray-800/50 text-xs text-gray-400">Mặt sau CMND/CCCD</div>
-                    <img src={identityInfo.backImage} alt="Mặt sau" className="w-full h-auto" />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {identityInfo.verified ? (
-              <div className="bg-green-900/20 p-4 rounded-lg border border-green-700/50">
-                <p className="text-sm text-green-400 flex items-center">
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                  Danh tính đã được xác minh
-                </p>
-                {identityInfo.verifiedAt && (
-                  <p className="text-xs text-green-400/70 mt-1">
-                    Xác minh vào: {formatDate(identityInfo.verifiedAt)}
-                  </p>
-                )}
-              </div>
-            ) : identityInfo.pendingVerification ? (
-              <div className="bg-amber-900/20 p-4 rounded-lg border border-amber-700/50">
-                <p className="text-sm text-amber-400 flex items-center">
-                  <AlertTriangle className="h-5 w-5 mr-2" />
-                  Danh tính đang được xem xét
-                </p>
-                {identityInfo.submittedAt && (
-                  <p className="text-xs text-amber-400/70 mt-1">
-                    Gửi yêu cầu vào: {formatDate(identityInfo.submittedAt)}
-                  </p>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {!identityInfo.verified && !identityInfo.pendingVerification && (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-400">Vui lòng tải lên ảnh CMND/CCCD để xác minh danh tính</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="border border-dashed border-gray-600 rounded-lg p-4 flex flex-col items-center">
-                <p className="text-sm text-gray-400 mb-2">Mặt trước CMND/CCCD</p>
-                {frontImagePreview ? (
-                  <div className="relative w-full">
-                    <img src={frontImagePreview} alt="Mặt trước" className="w-full h-auto rounded-md" />
-                    <button
-                      type="button"
-                      className="absolute top-2 right-2 bg-red-500/80 p-1 rounded-full hover:bg-red-600"
-                      onClick={() => {
-                        setFrontImageFile(null);
-                        setFrontImagePreview('');
-                      }}
-                    >
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="px-3 py-2 bg-gray-700 rounded-md text-sm hover:bg-gray-600 transition-colors"
-                    onClick={() => document.getElementById('front-image-upload')?.click()}
-                  >
-                    <Upload className="h-4 w-4 inline-block mr-1" />
-                    Tải lên
-                  </button>
-                )}
-                <input
-                  id="front-image-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files?.[0]) {
-                      const file = e.target.files[0];
-                      setFrontImageFile(file);
-                      const reader = new FileReader();
-                      reader.onloadend = () => setFrontImagePreview(reader.result as string);
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="border border-dashed border-gray-600 rounded-lg p-4 flex flex-col items-center">
-                <p className="text-sm text-gray-400 mb-2">Mặt sau CMND/CCCD</p>
-                {backImagePreview ? (
-                  <div className="relative w-full">
-                    <img src={backImagePreview} alt="Mặt sau" className="w-full h-auto rounded-md" />
-                    <button
-                      type="button"
-                      className="absolute top-2 right-2 bg-red-500/80 p-1 rounded-full hover:bg-red-600"
-                      onClick={() => {
-                        setBackImageFile(null);
-                        setBackImagePreview('');
-                      }}
-                    >
-                      <XCircle className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="px-3 py-2 bg-gray-700 rounded-md text-sm hover:bg-gray-600 transition-colors"
-                    onClick={() => document.getElementById('back-image-upload')?.click()}
-                  >
-                    <Upload className="h-4 w-4 inline-block mr-1" />
-                    Tải lên
-                  </button>
-                )}
-                <input
-                  id="back-image-upload"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files?.[0]) {
-                      const file = e.target.files[0];
-                      setBackImageFile(file);
-                      const reader = new FileReader();
-                      reader.onloadend = () => setBackImagePreview(reader.result as string);
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              className="w-full"
-              disabled={isUploadingIdentity || !frontImageFile || !backImageFile}
-              onClick={handleIdentityUpload}
-            >
-              {isUploadingIdentity ? (
-                <>
-                  <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent" />
-                  Đang xử lý...
-                </>
-              ) : (
-                'Gửi yêu cầu xác minh'
-              )}
-            </Button>
-          </div>
-        )}
-      </div>
+      {/* Phần xác minh danh tính đã được chuyển sang component IdentityVerificationSection riêng biệt */}
 
       {(isEditMode || !hasBankInfo) && (
         <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700/50">
@@ -676,6 +393,10 @@ export function BankInfoSection() {
                 placeholder="Nhập số tài khoản"
                 disabled={isVerified || isPending}
                 className="bg-gray-900/50 border-gray-700"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
               />
             </div>
             <div className="flex gap-3 pt-2">
