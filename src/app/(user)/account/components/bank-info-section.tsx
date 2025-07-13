@@ -370,6 +370,7 @@ export function BankInfoSection() {
                 </div>
               </div>
             )}
+          </div>
             
       <div className="bg-gray-800/40 rounded-xl border border-gray-700/50 overflow-hidden mt-6">
         <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">
@@ -379,15 +380,7 @@ export function BankInfoSection() {
           </h3>
           {isVerified && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Đã xác minh</span>}
           {isPending && <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">Đang xác minh</span>}
-        <div className="bg-gray-800/40 rounded-xl border border-gray-700/50 overflow-hidden mt-6">
-          <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">
-            <h3 className="font-medium flex items-center gap-2">
-              <Building className="h-4 w-4 text-gray-400" />
-              Thông tin ngân hàng
-            </h3>
-            {isVerified && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Đã xác minh</span>}
-            {isPending && <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">Đang xác minh</span>}
-          </div>
+        </div>
           
           <div className="p-5 space-y-4">
             <div className="flex items-center gap-3">
