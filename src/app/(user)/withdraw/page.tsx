@@ -342,15 +342,15 @@ export default function WithdrawPage() {
                     {(savedBankInfo?.verified || savedBankInfo?.pendingVerification) ? (
                       <>
                         {/* Hiển thị thông tin ngân hàng dạng text khi đã xác minh hoặc đang chờ xác minh */}
-                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
+                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
                           <p className="text-gray-400 text-sm mb-1">Ngân hàng</p>
                           <p className="text-white font-medium">{bankName}</p>
                         </div>
-                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
+                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
                           <p className="text-gray-400 text-sm mb-1">Số tài khoản</p>
                           <p className="text-white font-medium">{accountNumber}</p>
                         </div>
-                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700">
+                        <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
                           <p className="text-gray-400 text-sm mb-1">Chủ tài khoản</p>
                           <p className="text-white font-medium">{accountHolder}</p>
                         </div>
