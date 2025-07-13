@@ -23,6 +23,7 @@ interface BankInfo {
 
 interface User {
   _id: string;
+  id?: string; // Thêm id để tương thích với các API khác
   username: string;
   email: string;
   balance: number;
@@ -55,6 +56,7 @@ export default function WithdrawPage() {
     accountNumber: string;
     accountHolder: string;
     verified?: boolean;
+    pendingVerification?: boolean;
   } | null>(null);
 
   const { data: settingsData, error: settingsError } = useSWR(
@@ -70,6 +72,25 @@ export default function WithdrawPage() {
       toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng đăng nhập' });
       router.push('/login');
       return;
+    }
+    
+    // Lấy thông tin ngân hàng đã lưu từ localStorage ngay khi trang được tải
+    if (typeof window !== 'undefined') {
+      const savedBankData = localStorage.getItem('userBankInfo');
+      if (savedBankData && user) {
+        try {
+          const parsedData = JSON.parse(savedBankData);
+          if (parsedData.userId === user._id || parsedData.userId === user.id) {
+            setSavedBankInfo(parsedData);
+            setBankName(parsedData.bankName || '');
+            setAccountNumber(parsedData.accountNumber || '');
+            setAccountHolder(parsedData.accountHolder || '');
+            setHasBankInfo(!!parsedData.bankName && !!parsedData.accountNumber && !!parsedData.accountHolder);
+          }
+        } catch (error) {
+          console.error('Lỗi khi đọc dữ liệu ngân hàng đã lưu:', error);
+        }
+      }
     }
     
     if (user) {
@@ -89,36 +110,32 @@ export default function WithdrawPage() {
             accountHolder: user.bankInfo.accountHolder || '',
             verified: true
           });
+        } else if (user.bankInfo.pendingVerification) {
+          setSavedBankInfo({
+            bankName: user.bankInfo.bankName || '',
+            accountNumber: user.bankInfo.accountNumber || '',
+            accountHolder: user.bankInfo.accountHolder || '',
+            pendingVerification: true
+          });
         }
       } else {
         setHasBankInfo(false);
-      }
-      
-      // Lấy thông tin ngân hàng đã lưu từ localStorage
-      if (typeof window !== 'undefined') {
-        const savedBankData = localStorage.getItem('userBankInfo');
-        if (savedBankData) {
-          try {
-            const parsedData = JSON.parse(savedBankData);
-            if (parsedData.userId === user._id || parsedData.userId === user.id) {
-              if (!user.bankInfo?.verified) {
-                setSavedBankInfo(parsedData);
-                setBankName(parsedData.bankName || '');
-                setAccountNumber(parsedData.accountNumber || '');
-                setAccountHolder(parsedData.accountHolder || '');
-                setHasBankInfo(!!parsedData.bankName && !!parsedData.accountNumber && !!parsedData.accountHolder);
-              }
-            }
-          } catch (error) {
-            console.error('Lỗi khi đọc dữ liệu ngân hàng đã lưu:', error);
-          }
-        }
       }
     }
   }, [user, isLoading, router, toast]);
 
   // Hàm lưu thông tin ngân hàng người dùng
   const saveBankInfo = async () => {
+    // Kiểm tra nếu thông tin đã được xác nhận hoặc đang chờ xác minh thì không cho phép thay đổi
+    if (savedBankInfo?.verified || savedBankInfo?.pendingVerification) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Không thể thay đổi', 
+        description: 'Thông tin ngân hàng đã được xác nhận hoặc đang chờ xác minh, không thể thay đổi' 
+      });
+      return;
+    }
+    
     if (!bankName || !accountNumber || !accountHolder) {
       toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập đầy đủ thông tin ngân hàng' });
       return;
@@ -141,7 +158,7 @@ export default function WithdrawPage() {
         // Lưu thông tin vào localStorage
         if (typeof window !== 'undefined' && user) {
           localStorage.setItem('userBankInfo', JSON.stringify({
-            userId: user._id || user.id,
+            userId: user._id || user.id || '',
             bankName,
             accountNumber,
             accountHolder,
@@ -156,6 +173,11 @@ export default function WithdrawPage() {
           accountNumber,
           accountHolder,
           pendingVerification: true
+        } as {
+          bankName: string;
+          accountNumber: string;
+          accountHolder: string;
+          pendingVerification?: boolean;
         });
 
         toast({
@@ -377,6 +399,7 @@ export default function WithdrawPage() {
                           onChange={(e) => setBankName(e.target.value)}
                           placeholder="Nhập tên ngân hàng"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
                       </div>
@@ -388,6 +411,7 @@ export default function WithdrawPage() {
                           onChange={(e) => setAccountNumber(e.target.value)}
                           placeholder="Nhập số tài khoản"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
                       </div>
@@ -399,6 +423,7 @@ export default function WithdrawPage() {
                           onChange={(e) => setAccountHolder(e.target.value)}
                           placeholder="Nhập tên chủ tài khoản"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
                       </div>
@@ -406,7 +431,7 @@ export default function WithdrawPage() {
                         type="button"
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                         onClick={saveBankInfo}
-                        disabled={!bankName || !accountNumber || !accountHolder || isSavingBankInfo}
+                        disabled={!bankName || !accountNumber || !accountHolder || isSavingBankInfo || savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                       >
                         {isSavingBankInfo ? (
                           <>
