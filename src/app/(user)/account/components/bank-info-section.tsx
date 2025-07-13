@@ -46,34 +46,16 @@ export function BankInfoSection() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Load initial data
   useEffect(() => {
-    const loadStoredData = () => {
+    const loadStoredData = async () => {
       if (typeof window === 'undefined') return;
 
-      // Load bank info
-      const savedBankInfo = localStorage.getItem('userBankInfo');
-      if (savedBankInfo) {
-        try {
-          const parsedInfo = JSON.parse(savedBankInfo);
-          if (user && (parsedInfo.userId === user._id || parsedInfo.userId === user.id)) {
-            setFormData(prev => ({
-              ...prev,
-              ...parsedInfo,
-              verified: parsedInfo.verified ?? false,
-              pendingVerification: parsedInfo.pendingVerification ?? false
-            }));
-          }
-        } catch (error) {
-          console.error('Error parsing saved bank info:', error);
-        }
-      }
-
-      // Update from user data if available
-      if (user) {
-        // Bank info
-        if (user.bankInfo) {
+      try {
+        // Đầu tiên, kiểm tra dữ liệu từ server (user object)
+        if (user && user.bankInfo) {
           const bankInfo = {
             fullName: user.bankInfo.fullName || '',
             bankName: user.bankInfo.bankName || '',
@@ -86,17 +68,42 @@ export function BankInfoSection() {
           
           setFormData(bankInfo);
           
-          // Save to localStorage
+          // Cập nhật localStorage với dữ liệu mới nhất từ server
           localStorage.setItem('userBankInfo', JSON.stringify({
             ...bankInfo,
-            userId: user._id || user.id
+            userId: user._id || user.id,
+            lastUpdated: new Date().toISOString()
           }));
+        } 
+        // Nếu không có dữ liệu từ server, thử tải từ localStorage
+        else {
+          const savedBankInfo = localStorage.getItem('userBankInfo');
+          if (savedBankInfo) {
+            const parsedInfo = JSON.parse(savedBankInfo);
+            if (user && (parsedInfo.userId === user._id || parsedInfo.userId === user.id)) {
+              setFormData(prev => ({
+                ...prev,
+                ...parsedInfo,
+                verified: parsedInfo.verified ?? false,
+                pendingVerification: parsedInfo.pendingVerification ?? false
+              }));
+            }
+          }
         }
+        
+        setDataLoaded(true);
+      } catch (error) {
+        console.error('Error loading bank info data:', error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải thông tin ngân hàng",
+          variant: "destructive"
+        });
       }
     };
 
     loadStoredData();
-  }, [user]);
+  }, [user, toast]);
 
   const getToken = useCallback(() => {
     return localStorage.getItem('token') || localStorage.getItem('authToken') || '';
@@ -151,7 +158,7 @@ export function BankInfoSection() {
     if (!formData.fullName || !formData.bankName || !formData.accountNumber) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng điền đầy đủ thông tin",
+        description: "Vui lòng điền đầy đủ thông tin ngân hàng",
         variant: "destructive"
       });
       return;
@@ -168,7 +175,7 @@ export function BankInfoSection() {
     }
     
     // Kiểm tra số tài khoản chỉ chứa số
-    if (!/^\d+$/.test(formData.accountNumber)) {
+    if (!formData.accountNumber.match(/^[0-9]+$/)) {
       toast({
         title: "Lỗi",
         description: "Số tài khoản chỉ được chứa các chữ số",
@@ -176,39 +183,59 @@ export function BankInfoSection() {
       });
       return;
     }
-
+    
+    // Kiểm tra nếu thông tin đã được xác minh hoặc đang chờ xác minh
+    if (formData.verified || formData.pendingVerification) {
+      toast({
+        title: "Không thể cập nhật",
+        description: "Thông tin ngân hàng đã được xác minh hoặc đang chờ xác minh",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
-
+    
     try {
-      const bankInfoToSave = {
-        ...formData,
-        userId: user?._id || user?.id || '',
-        pendingVerification: true,
-        submittedAt: new Date().toISOString()
-      };
-      localStorage.setItem('userBankInfo', JSON.stringify(bankInfoToSave));
-
+      // Gửi thông tin ngân hàng lên server
       const response = await fetch('/api/update-bank-info', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${getToken()}`
         },
-        body: JSON.stringify({ bankInfo: bankInfoToSave })
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          bankName: formData.bankName,
+          accountNumber: formData.accountNumber
+        })
       });
-
+      
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Error: ${response.status}`);
       }
-
-      await response.json();
-      await refreshUser();
-      setIsEditMode(false);
+      
+      const responseData = await response.json();
+      
+      // Cập nhật localStorage với dữ liệu mới nhất
+      if (user) {
+        localStorage.setItem('userBankInfo', JSON.stringify({
+          ...formData,
+          userId: user._id || user.id,
+          pendingVerification: responseData.pendingVerification || false,
+          lastUpdated: new Date().toISOString()
+        }));
+      }
       
       toast({
         title: "Thành công",
-        description: "Thông tin ngân hàng đã được cập nhật và đang chờ xác minh"
+        description: "Đã cập nhật thông tin ngân hàng"
       });
+      
+      setIsEditMode(false);
+      refreshUser(); // Refresh user data to get updated bank info
+      
     } catch (error) {
       console.error('Error updating bank info:', error);
       toast({

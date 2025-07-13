@@ -150,9 +150,25 @@ export default function AccountPage() {
                 <p className="text-blue-300 text-sm">{user?.email || 'No email'}</p>
               </div>
             </div>
-            <div className="flex flex-col items-end">
-              <div className="text-sm text-blue-300">Số dư khả dụng</div>
-              <div className="text-2xl font-bold">{balance.toLocaleString()} VND</div>
+            <div className="flex items-center gap-4">
+              <Button 
+                onClick={handleRefreshData} 
+                variant="outline" 
+                size="sm" 
+                className="text-blue-300 border-blue-800 hover:bg-blue-900/30"
+                disabled={isRefreshing}
+              >
+                {isRefreshing ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                )}
+                Làm mới
+              </Button>
+              <div className="flex flex-col items-end">
+                <div className="text-sm text-blue-300">Số dư khả dụng</div>
+                <div className="text-2xl font-bold">{balance.toLocaleString()} VND</div>
+              </div>
             </div>
           </div>
         </div>
