@@ -371,46 +371,14 @@ export function BankInfoSection() {
               </div>
             )}
             
-            {!isSaving && (
-              <div className="bg-blue-900/20 p-3 rounded-md border border-blue-900/30">
-                <p className="text-sm text-blue-400">
-                  Thông tin ngân hàng {isVerified ? 'đã được xác minh' : 'đang chờ xác minh'} và không thể chỉnh sửa.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-red-500">
-              * Họ tên
-            </label>
-            <Input 
-              type="text" 
-              name="fullName" 
-              value={formData.fullName} 
-              onChange={handleInputChange} 
-              placeholder="Nhập tên, vui lòng nhập thêm khoảng cách cho mỗi từ"
-              className="bg-transparent border-gray-700 text-white"
-            />
-          </div>
-          <Button 
-            variant={isEditMode ? "destructive" : "outline"}
-            size="sm"
-            onClick={toggleEditMode}
-            className="flex items-center gap-2"
-          >
-            <PencilLine className="h-4 w-4" />
-            {isEditMode ? "Hủy" : "Chỉnh sửa"}
-          </Button>
-        )}
-      </div>
-      
-      {getBankInfoStatus()}
-      
-      {/* Bank Info Card View */}
-      {hasBankInfo && !isEditMode && (
+      <div className="bg-gray-800/40 rounded-xl border border-gray-700/50 overflow-hidden mt-6">
+        <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">
+          <h3 className="font-medium flex items-center gap-2">
+            <Building className="h-4 w-4 text-gray-400" />
+            Thông tin ngân hàng
+          </h3>
+          {isVerified && <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full">Đã xác minh</span>}
+          {isPending && <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">Đang xác minh</span>}
         <div className="bg-gray-800/40 rounded-xl border border-gray-700/50 overflow-hidden mt-6">
           <div className="p-4 border-b border-gray-700/50 flex items-center justify-between">
             <h3 className="font-medium flex items-center gap-2">

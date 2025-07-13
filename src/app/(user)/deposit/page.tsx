@@ -18,6 +18,7 @@ interface BankInfo {
   accountNumber?: string;
   accountHolder?: string;
   verified?: boolean;
+  pendingVerification?: boolean;
 }
 
 interface User {
@@ -51,6 +52,8 @@ export default function DepositPage() {
     amount: string;
     selectedBank: string;
   } | null>(null);
+  const [bankVerified, setBankVerified] = useState<boolean>(false);
+  const [bankPendingVerification, setBankPendingVerification] = useState<boolean>(false);
 
   // Lấy token từ localStorage
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('authToken') : null;
@@ -88,6 +91,12 @@ export default function DepositPage() {
       toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng đăng nhập' });
       router.push('/login');
       return;
+    }
+    
+    // Kiểm tra trạng thái xác minh ngân hàng của người dùng
+    if (user?.bankInfo) {
+      setBankVerified(!!user.bankInfo.verified);
+      setBankPendingVerification(!!user.bankInfo.pendingVerification);
     }
     
     // Lấy dữ liệu đã lưu từ localStorage
@@ -210,6 +219,15 @@ export default function DepositPage() {
         variant: 'destructive', 
         title: 'Lỗi', 
         description: 'Vui lòng điền đầy đủ thông tin và xác nhận' 
+      });
+      return;
+    }
+    
+    if (!bankVerified) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Lỗi', 
+        description: 'Thông tin ngân hàng của bạn chưa được xác minh. Vui lòng xác minh thông tin ngân hàng trước khi nạp tiền.' 
       });
       return;
     }
@@ -408,6 +426,25 @@ export default function DepositPage() {
               </div>
             )}
             
+            {/* Thông báo về trạng thái xác minh ngân hàng */}
+            {!bankVerified && !bankPendingVerification && !savedData && (
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-md mb-4">
+                <p className="text-sm text-yellow-400 flex items-center">
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Bạn cần xác minh thông tin ngân hàng trước khi nạp tiền. Vui lòng vào trang <a href="/account" className="underline hover:text-yellow-300">Tài khoản</a> để xác minh.
+                </p>
+              </div>
+            )}
+            
+            {bankPendingVerification && !bankVerified && !savedData && (
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-md mb-4">
+                <p className="text-sm text-blue-400 flex items-center">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Thông tin ngân hàng của bạn đang chờ xác minh. Vui lòng chờ quản trị viên xác nhận.
+                </p>
+              </div>
+            )}
+            
             {/* Nút gửi hoặc trạng thái */}
             {savedData ? (
               <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-md">
@@ -421,7 +458,7 @@ export default function DepositPage() {
                 type="button"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={handleSubmit}
-                disabled={!amount || !bill || !selectedBank || !isConfirmed || isUploading}
+                disabled={!amount || !bill || !selectedBank || !isConfirmed || isUploading || !bankVerified}
               >
                 Gửi yêu cầu nạp tiền
               </Button>
