@@ -58,6 +58,8 @@ export default function WithdrawPage() {
     verified?: boolean;
     pendingVerification?: boolean;
   } | null>(null);
+  
+  const [isSavingBankInfo, setIsSavingBankInfo] = useState(false);
 
   const { data: settingsData, error: settingsError } = useSWR(
     token ? '/api/settings' : null,
