@@ -311,50 +311,96 @@ export function BankInfoSection() {
         </div>
       </div>
 
+      {/* Hiển thị thông tin ngân hàng khi đã có thông tin */}
       {(hasBankInfo || isVerified || isPending) && (
-        <div className="bg-gray-800/50 p-6 rounded-lg border border-gray-700/50 mb-6">
+        <div className={`p-6 rounded-lg border mb-6 ${isVerified ? 'bg-green-900/10 border-green-700/30' : isPending ? 'bg-amber-900/10 border-amber-700/30' : 'bg-gray-800/50 border-gray-700/50'}`}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium flex items-center gap-2">
               <Building className="h-5 w-5" />
               Thông tin ngân hàng
             </h3>
-            <span className={`text-xs px-3 py-1 rounded-full ${isVerified ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'}`}>
-              {isVerified ? 'Đã xác minh' : 'Đang xác minh'}
-            </span>
+            {(isVerified || isPending) && (
+              <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1 ${isVerified ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                {isVerified ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                {isVerified ? 'Đã xác minh' : 'Đang xác minh'}
+              </span>
+            )}
           </div>
 
           <div className="space-y-4">
+            {/* Chủ tài khoản */}
             <div className="flex items-center gap-3">
-              <User className="h-5 w-5 text-gray-400" />
-              <div>
+              <div className={`p-2 rounded-full ${isVerified ? 'bg-green-900/20' : isPending ? 'bg-amber-900/20' : 'bg-gray-700/30'}`}>
+                <User className="h-5 w-5 text-gray-300" />
+              </div>
+              <div className="flex-1">
                 <p className="text-sm text-gray-400">Chủ tài khoản</p>
-                <p className="font-medium">{formData.fullName}</p>
+                <p className="font-medium text-lg">{formData.fullName}</p>
               </div>
             </div>
+            
+            {/* Ngân hàng */}
             <div className="flex items-center gap-3">
-              <Building className="h-5 w-5 text-gray-400" />
-              <div>
+              <div className={`p-2 rounded-full ${isVerified ? 'bg-green-900/20' : isPending ? 'bg-amber-900/20' : 'bg-gray-700/30'}`}>
+                <Building className="h-5 w-5 text-gray-300" />
+              </div>
+              <div className="flex-1">
                 <p className="text-sm text-gray-400">Ngân hàng</p>
-                <p className="font-medium">{formData.bankName}</p>
+                <p className="font-medium text-lg">{formData.bankName}</p>
               </div>
             </div>
+            
+            {/* Số tài khoản */}
             <div className="flex items-center gap-3">
-              <CreditCard className="h-5 w-5 text-gray-400" />
-              <div>
+              <div className={`p-2 rounded-full ${isVerified ? 'bg-green-900/20' : isPending ? 'bg-amber-900/20' : 'bg-gray-700/30'}`}>
+                <CreditCard className="h-5 w-5 text-gray-300" />
+              </div>
+              <div className="flex-1">
                 <p className="text-sm text-gray-400">Số tài khoản</p>
-                <p className="font-medium">{formData.accountNumber}</p>
+                <p className="font-medium text-lg tracking-wider">{formData.accountNumber}</p>
               </div>
             </div>
+            
+            {/* Ngày gửi */}
             {formData.submittedAt && (
               <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-gray-400" />
-                <div>
+                <div className={`p-2 rounded-full ${isVerified ? 'bg-green-900/20' : isPending ? 'bg-amber-900/20' : 'bg-gray-700/30'}`}>
+                  <Clock className="h-5 w-5 text-gray-300" />
+                </div>
+                <div className="flex-1">
                   <p className="text-sm text-gray-400">Ngày gửi</p>
                   <p className="font-medium">{formatDate(formData.submittedAt)}</p>
                 </div>
               </div>
             )}
+            
+            {/* Ngày xác minh */}
+            {formData.verifiedAt && (
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-green-900/20">
+                  <CheckCircle className="h-5 w-5 text-green-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400">Ngày xác minh</p>
+                  <p className="font-medium text-green-400">{formatDate(formData.verifiedAt)}</p>
+                </div>
+              </div>
+            )}
           </div>
+          
+          {/* Thông báo khi đã xác minh hoặc đang chờ xác minh */}
+          {(isVerified || isPending) && (
+            <div className={`mt-4 p-3 rounded-lg text-sm ${isVerified ? 'bg-green-900/20 text-green-400' : 'bg-amber-900/20 text-amber-400'}`}>
+              <div className="flex items-center gap-2">
+                {isVerified ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                <p>
+                  {isVerified 
+                    ? 'Thông tin ngân hàng đã được xác minh và không thể chỉnh sửa.' 
+                    : 'Thông tin ngân hàng đang chờ xác minh và không thể chỉnh sửa trong thời gian này.'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
