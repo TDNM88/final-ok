@@ -401,6 +401,7 @@ export default function WithdrawPage() {
                           onChange={(e) => setBankName(e.target.value)}
                           placeholder="Nhập tên ngân hàng"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
                       </div>
@@ -412,6 +413,7 @@ export default function WithdrawPage() {
                           onChange={(e) => setAccountNumber(e.target.value)}
                           placeholder="Nhập số tài khoản"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
                       </div>
@@ -423,6 +425,7 @@ export default function WithdrawPage() {
                           onChange={(e) => setAccountHolder(e.target.value)}
                           placeholder="Nhập tên chủ tài khoản"
                           className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                          disabled={savedBankInfo?.verified || savedBankInfo?.pendingVerification}
                           required
                         />
                       </div>
