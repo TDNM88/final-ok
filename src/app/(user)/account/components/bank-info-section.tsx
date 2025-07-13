@@ -33,20 +33,17 @@ export function BankInfoSection() {
         accountNumber: user.bankInfo.accountNumber || '',
       });
       
-      // Đặt pendingVerification = true để luôn hiển thị dạng card nếu đã có thông tin từ server
-      if (!user.bankInfo.verified && !user.bankInfo.pendingVerification) {
-        // Lưu trạng thái pendingVerification vào localStorage để lần sau hiển thị dạng card
-        if (typeof window !== 'undefined') {
-          try {
-            const bankInfoToSave = {
-              ...user.bankInfo,
-              userId: user._id || user.id,
-              pendingVerification: true
-            };
-            localStorage.setItem('userBankInfo', JSON.stringify(bankInfoToSave));
-          } catch (error) {
-            console.error('Error saving bank info to localStorage:', error);
-          }
+      // Luôn đặt pendingVerification = true để hiển thị dạng card nếu đã có thông tin
+      if (typeof window !== 'undefined') {
+        try {
+          const bankInfoToSave = {
+            ...user.bankInfo,
+            userId: user._id || user.id,
+            pendingVerification: true // Luôn đặt true để hiển thị dạng card
+          };
+          localStorage.setItem('userBankInfo', JSON.stringify(bankInfoToSave));
+        } catch (error) {
+          console.error('Error saving bank info to localStorage:', error);
         }
       }
     } else if (typeof window !== 'undefined') {
@@ -64,18 +61,15 @@ export function BankInfoSection() {
               accountNumber: parsedInfo.accountNumber || '',
             });
             
-            // Đặt pendingVerification = true để luôn hiển thị dạng card từ lần truy cập sau
-            if (!parsedInfo.verified && !parsedInfo.pendingVerification) {
-              const updatedInfo = {
-                ...parsedInfo,
-                pendingVerification: true
-              };
-              localStorage.setItem('userBankInfo', JSON.stringify(updatedInfo));
-            }
+            // Luôn đặt pendingVerification = true để hiển thị dạng card
+            const updatedInfo = {
+              ...parsedInfo,
+              pendingVerification: true
+            };
+            localStorage.setItem('userBankInfo', JSON.stringify(updatedInfo));
           }
         } catch (error) {
           console.error('Error parsing saved bank info:', error);
-          console.error('Lỗi khi đọc dữ liệu ngân hàng đã lưu:', error);
         }
       }
     }
@@ -241,7 +235,7 @@ export function BankInfoSection() {
       </div>
       
       {/* Bank info form or display */}
-      {isVerified || isPending || isSaving ? (
+      {hasBankInfo || isVerified || isPending || isSaving ? (
         <div className="space-y-4">
           {/* Hiển thị thông tin dạng thẻ thông tin khi đã xác minh hoặc đang chờ xác minh hoặc đang lưu */}
           <div className="bg-gray-800/50 p-4 rounded-md border border-gray-700/50 space-y-3">
