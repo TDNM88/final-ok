@@ -76,7 +76,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
               </div>
               <div>
                 <h1 className="text-xl font-bold">{user?.username || 'User'}</h1>
-                <p className="text-blue-300 text-sm">{user?.email || 'No email'}</p>
+                <p className="text-blue-300 text-sm">{user?.email || user?.phone || 'No contact info'}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
