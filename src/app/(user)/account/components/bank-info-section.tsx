@@ -211,66 +211,57 @@ export function BankInfoSection() {
       {/* Bank info form or display */}
       {isVerified || isPending || isSaving ? (
         <div className="space-y-4">
-          {/* Hiển thị thông tin dạng text khi đã xác minh hoặc đang chờ xác minh */}
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-red-500">
-              * Họ tên
-            </label>
-            <Input 
-              type="text" 
-              value={formData.fullName} 
-              readOnly 
-              className="bg-transparent border-gray-700 text-white" 
-            />
-          </div>
-          
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-red-500">
-              * Loại
-            </label>
-            <Input 
-              type="text" 
-              value={formData.bankType} 
-              readOnly 
-              className="bg-transparent border-gray-700 text-white" 
-            />
-          </div>
-          
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-red-500">
-              * Ngân hàng
-            </label>
-            <Input 
-              type="text" 
-              value={formData.bankName} 
-              readOnly 
-              className="bg-transparent border-gray-700 text-white" 
-            />
-          </div>
-          
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-red-500">
-              * Số tài khoản
-            </label>
-            <Input 
-              type="text" 
-              value={formData.accountNumber} 
-              readOnly 
-              className="bg-transparent border-gray-700 text-white" 
-            />
-          </div>
-          
-          <div className="bg-blue-900/20 p-3 rounded-md border border-blue-900/30">
-            <p className="text-sm text-blue-400">
+          {/* Hiển thị thông tin dạng thẻ thông tin khi đã xác minh hoặc đang chờ xác minh hoặc đang lưu */}
+          <div className="bg-gray-800/50 p-4 rounded-md border border-gray-700/50 space-y-3">
+            <div className="flex justify-between items-center border-b border-gray-700/30 pb-2">
+              <h3 className="text-md font-medium text-white">Thông tin ngân hàng</h3>
               {isSaving ? (
-                <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
-                  <span>Đang lưu thông tin ngân hàng...</span>
+                <div className="flex items-center space-x-2 bg-blue-900/30 px-2 py-1 rounded">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-400"></div>
+                  <span className="text-xs text-blue-400">Đang lưu...</span>
                 </div>
+              ) : isVerified ? (
+                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-900/30 text-green-400">
+                  <CheckCircle className="w-3 h-3 mr-1" /> Đã xác minh
+                </span>
               ) : (
-                <>Thông tin ngân hàng {isVerified ? 'đã được xác minh' : 'đang chờ xác minh'} và không thể chỉnh sửa.</>
+                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-900/30 text-yellow-400">
+                  <AlertTriangle className="w-3 h-3 mr-1" /> Đang chờ xác minh
+                </span>
               )}
-            </p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="text-gray-400">Ngân hàng:</div>
+              <div className="col-span-2 text-white font-medium">{formData.bankName}</div>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="text-gray-400">Số tài khoản:</div>
+              <div className="col-span-2 text-white font-medium">{formData.accountNumber}</div>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="text-gray-400">Chủ tài khoản:</div>
+              <div className="col-span-2 text-white font-medium">{formData.fullName}</div>
+            </div>
+            
+            {isSaving && (
+              <div className="bg-blue-900/20 p-3 rounded-md border border-blue-900/30 mt-2">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <p className="text-sm text-blue-400">Đang xử lý thông tin ngân hàng của bạn...</p>
+                </div>
+              </div>
+            )}
+            
+            {!isSaving && (
+              <div className="bg-blue-900/20 p-3 rounded-md border border-blue-900/30">
+                <p className="text-sm text-blue-400">
+                  Thông tin ngân hàng {isVerified ? 'đã được xác minh' : 'đang chờ xác minh'} và không thể chỉnh sửa.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       ) : (
