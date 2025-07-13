@@ -200,80 +200,124 @@ export function BankInfoSection() {
         </div>
       </div>
       
-      {/* Bank info form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-red-500">
-            * Họ tên
-          </label>
-          <Input 
-            type="text" 
-            name="fullName" 
-            value={formData.fullName} 
-            onChange={handleInputChange} 
-            placeholder="Nhập tên, vui lòng nhập thêm khoảng cách cho mỗi từ"
-            className="bg-transparent border-gray-700 text-white"
-            disabled={isVerified || isPending}
-          />
-        </div>
-        
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-red-500">
-            * Loại
-          </label>
-          <div className="relative">
-            <Input 
-              type="text" 
-              value={formData.bankType} 
-              readOnly
-              className="bg-transparent border-gray-700 text-white pr-10"
-            />
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+      {/* Bank info form or display */}
+      {isVerified || isPending ? (
+        <div className="space-y-4">
+          {/* Hiển thị thông tin dạng text khi đã xác minh hoặc đang chờ xác minh */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-red-500">
+              * Họ tên
+            </label>
+            <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
+              <p className="text-white font-medium">{formData.fullName}</p>
             </div>
           </div>
+          
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-red-500">
+              * Loại
+            </label>
+            <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
+              <p className="text-white font-medium">{formData.bankType}</p>
+            </div>
+          </div>
+          
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-red-500">
+              * Ngân hàng
+            </label>
+            <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
+              <p className="text-white font-medium">{formData.bankName}</p>
+            </div>
+          </div>
+          
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-red-500">
+              * Số tài khoản
+            </label>
+            <div className="bg-gray-800/70 p-3 rounded-md border border-gray-700 select-none pointer-events-none">
+              <p className="text-white font-medium">{formData.accountNumber}</p>
+            </div>
+          </div>
+          
+          <div className="bg-blue-900/20 p-3 rounded-md border border-blue-900/30">
+            <p className="text-sm text-blue-400">
+              Thông tin ngân hàng {isVerified ? 'đã được xác minh' : 'đang chờ xác minh'} và không thể chỉnh sửa.
+            </p>
+          </div>
         </div>
-        
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-red-500">
-            * Ngân hàng
-          </label>
-          <Input 
-            type="text" 
-            name="bankName" 
-            value={formData.bankName} 
-            onChange={handleInputChange} 
-            placeholder="Nhập tên ngân hàng"
-            className="bg-transparent border-gray-700 text-white"
-            disabled={isVerified || isPending}
-          />
-        </div>
-        
-        <div className="space-y-1">
-          <label className="block text-sm font-medium text-red-500">
-            * Số tài khoản
-          </label>
-          <Input 
-            type="text" 
-            name="accountNumber" 
-            value={formData.accountNumber} 
-            onChange={handleInputChange} 
-            placeholder="Nhập số tài khoản ngân hàng của bạn"
-            className="bg-transparent border-gray-700 text-white"
-            disabled={isVerified || isPending}
-          />
-        </div>
-        
-        <Button 
-          type="submit" 
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
-          disabled={isSubmitting || isVerified || isPending}
-        >
-          {isSubmitting ? 'Đang xử lý...' : 'Xác nhận'}
-        </Button>
-      </form>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-red-500">
+              * Họ tên
+            </label>
+            <Input 
+              type="text" 
+              name="fullName" 
+              value={formData.fullName} 
+              onChange={handleInputChange} 
+              placeholder="Nhập tên, vui lòng nhập thêm khoảng cách cho mỗi từ"
+              className="bg-transparent border-gray-700 text-white"
+            />
+          </div>
+          
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-red-500">
+              * Loại
+            </label>
+            <div className="relative">
+              <Input 
+                type="text" 
+                value={formData.bankType} 
+                readOnly
+                className="bg-transparent border-gray-700 text-white pr-10"
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-red-500">
+              * Ngân hàng
+            </label>
+            <Input 
+              type="text" 
+              name="bankName" 
+              value={formData.bankName} 
+              onChange={handleInputChange} 
+              placeholder="Nhập tên ngân hàng"
+              className="bg-transparent border-gray-700 text-white"
+            />
+          </div>
+          
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-red-500">
+              * Số tài khoản
+            </label>
+            <Input 
+              type="text" 
+              name="accountNumber" 
+              value={formData.accountNumber} 
+              onChange={handleInputChange} 
+              placeholder="Nhập số tài khoản ngân hàng của bạn"
+              className="bg-transparent border-gray-700 text-white"
+            />
+          </div>
+          
+          <Button 
+            type="submit" 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Đang xử lý...' : 'Xác nhận'}
+          </Button>
+        </form>
+      )}
     </div>
   );
 }
