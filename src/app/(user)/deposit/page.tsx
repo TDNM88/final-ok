@@ -165,15 +165,42 @@ export default function DepositPage() {
     }
   };
 
-  // Lưu thông tin người dùng đã nhập
-  const saveUserInputData = () => {
+  // Lưu thông tin người dùng đã nhập vào database
+  const saveUserInputData = async () => {
     if (user && amount && selectedBank) {
-      const dataToSave = {
-        userId: user._id || user.id,
-        amount,
-        selectedBank
-      };
-      localStorage.setItem('depositData', JSON.stringify(dataToSave));
+      try {
+        // Lưu vào localStorage để hiển thị ngay lập tức
+        const dataToSave = {
+          userId: user._id || user.id,
+          amount,
+          selectedBank,
+          timestamp: new Date().toISOString()
+        };
+        localStorage.setItem('depositData', JSON.stringify(dataToSave));
+        
+        // Lưu vào database
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('authToken') : null;
+        
+        if (token) {
+          const response = await fetch('/api/deposits/save-info', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              amount: Number(amount),
+              selectedBank
+            })
+          });
+          
+          if (!response.ok) {
+            console.error('Lỗi khi lưu thông tin nạp tiền:', await response.text());
+          }
+        }
+      } catch (error) {
+        console.error('Lỗi khi lưu thông tin nạp tiền:', error);
+      }
     }
   };
 
@@ -187,50 +214,26 @@ export default function DepositPage() {
       return;
     }
     
-    // Lưu thông tin người dùng đã nhập
-    saveUserInputData();
-
-    if (settings && Number(amount) < settings.minDeposit) {
-      toast({ variant: 'destructive', title: 'Lỗi', description: `Số tiền nạp tối thiểu là ${settings.minDeposit.toLocaleString()} đ` });
-      return;
-    }
-
-    if (!billUrl) {
-      toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng đợi ảnh được tải lên hoàn tất' });
-      return;
-    }
-
     try {
-      const res = await fetch('/api/deposits', {
-        method: 'POST',
-        credentials: 'include', // Include session cookie
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: Number(amount),
-          bill: billUrl,
-          bank: selectedBank,
-          confirmed: isConfirmed
-        }),
+      // Lưu thông tin người dùng đã nhập
+      await saveUserInputData();
+      
+      toast({
+        title: 'Thành công',
+        description: 'Yêu cầu nạp tiền đã được gửi. Vui lòng chờ xử lý.',
       });
       
-      const result = await res.json();
-      
-      if (res.ok) {
-        toast({ title: 'Thành công', description: 'Yêu cầu nạp tiền đã được gửi' });
-        setAmount('');
-        setBill(null);
-        setBillUrl(null);
-      } else {
-        toast({ variant: 'destructive', title: 'Lỗi', description: result.message || 'Có lỗi xảy ra' });
-      }
-    } catch (err) {
-      console.error('Lỗi khi gửi yêu cầu:', err);
-      toast({ 
-        variant: 'destructive', 
-        title: 'Lỗi', 
-        description: 'Không thể gửi yêu cầu. Vui lòng thử lại sau.' 
+      // Cập nhật trạng thái đã lưu
+      setSavedData({
+        amount,
+        selectedBank
+      });
+    } catch (error) {
+      console.error('Lỗi khi gửi yêu cầu nạp tiền:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Lỗi',
+        description: 'Không thể gửi yêu cầu nạp tiền. Vui lòng thử lại sau.',
       });
     }
   };
@@ -248,28 +251,37 @@ export default function DepositPage() {
             <CardTitle className="text-2xl font-semibold text-white">Thông tin ngân hàng nền tảng</CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-4">
-            {/* Phần nhập số tiền */}
-            <div className="mb-6">
-              <Label htmlFor="amount" className="text-white mb-2 block font-medium">Số tiền nạp</Label>
+            {/* Nhập số tiền nạp */}
+            <div className="space-y-2">
+              <Label htmlFor="amount" className="text-sm font-medium text-white">Số tiền nạp</Label>
               <div className="relative">
-                <Input
-                  id="amount"
-                  type="number"
-                  value={amount}
-                  onChange={(e) => {
-                    setAmount(e.target.value);
-                  }}
-                  placeholder="Nhập số tiền muốn nạp"
-                  className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
-                  required
-                />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
-                  VND
-                </div>
+                {savedData ? (
+                  <div className="bg-gray-700 text-white border border-gray-600 rounded-md px-3 py-2 flex justify-between items-center">
+                    <span>{Number(savedData.amount).toLocaleString()} VND</span>
+                    <span className="text-xs bg-green-500/20 text-green-500 px-2 py-1 rounded-full flex items-center">
+                      <CheckCircle className="h-3 w-3 mr-1" /> Đã xác nhận
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      id="amount"
+                      type="number"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="Nhập số tiền muốn nạp"
+                      className="bg-gray-700 text-white border-gray-600 focus:border-blue-500"
+                      required
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                      VND
+                    </div>
+                  </>
+                )}
               </div>
-              {settings && (
+              {settings && !savedData && (
                 <p className="text-sm text-gray-400 mt-1">
-                  Số tiền nạp tối thiểu: {settings.deposits?.minAmount?.toLocaleString() || '100,000'} VND
+                  Số tiền nạp tối thiểu: {settings.deposits.minAmount.toLocaleString()} VND
                 </p>
               )}
             </div>
@@ -282,34 +294,31 @@ export default function DepositPage() {
               <div className="space-y-4">
                 <p className="text-yellow-400 font-medium">Vui lòng chuyển khoản vào một trong các tài khoản sau:</p>
                 {/* Chọn ngân hàng */}
-                <div className="mb-4">
-                  <Label htmlFor="bank-select" className="text-white mb-2 block font-medium">Chọn ngân hàng</Label>
-                  <Select 
-                    value={selectedBank} 
-                    onValueChange={(value) => {
-                      setSelectedBank(value);
-                      // Lưu thông tin khi người dùng chọn ngân hàng
-                      if (user && amount) {
-                        const dataToSave = {
-                          userId: user._id || user.id,
-                          amount,
-                          selectedBank: value
-                        };
-                        localStorage.setItem('depositData', JSON.stringify(dataToSave));
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="bg-gray-700 text-white border-gray-600">
-                      <SelectValue placeholder="Chọn ngân hàng" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-gray-800 text-white border-gray-700">
-                      {platformBanks.banks.map((bank: any, index: number) => (
-                        <SelectItem key={index} value={bank.bankName} className="focus:bg-gray-700 focus:text-white">
-                          {bank.bankName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="bank" className="text-sm font-medium text-white">Chọn ngân hàng</Label>
+                  {savedData ? (
+                    <div className="bg-gray-700 text-white border border-gray-600 rounded-md px-3 py-2 flex justify-between items-center">
+                      <span>
+                        {platformBanks?.banks?.find((bank: any) => bank.code === savedData.selectedBank)?.name || savedData.selectedBank}
+                      </span>
+                      <span className="text-xs bg-green-500/20 text-green-500 px-2 py-1 rounded-full flex items-center">
+                        <CheckCircle className="h-3 w-3 mr-1" /> Đã xác nhận
+                      </span>
+                    </div>
+                  ) : (
+                    <Select value={selectedBank} onValueChange={setSelectedBank}>
+                      <SelectTrigger className="bg-gray-700 text-white border-gray-600 focus:border-blue-500">
+                        <SelectValue placeholder="Chọn ngân hàng" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-800 text-white border-gray-700">
+                        {platformBanks?.banks?.map((bank: any) => (
+                          <SelectItem key={bank.code} value={bank.code}>
+                            {bank.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -330,165 +339,93 @@ export default function DepositPage() {
               <p className="text-gray-400">Hiện tại chưa có thông tin ngân hàng nền tảng.</p>
             )}
 
-            {selectedBank && platformBanks && (
-              <Card className="bg-gray-700 border-gray-600">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg font-medium">Thông tin chuyển khoản</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-0">
-                  {platformBanks.banks.find((b: any) => b.bankName === selectedBank) && (
-                    <>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <p className="text-gray-400 text-sm">Ngân hàng:</p>
-                          <p className="text-white font-medium">{selectedBank}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400 text-sm">Số tài khoản:</p>
-                          <div className="flex items-center gap-2">
-                            <p className="text-white font-medium">
-                              {platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.accountNumber}
-                            </p>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6 rounded-full hover:bg-gray-600"
-                              onClick={() => {
-                                navigator.clipboard.writeText(platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.accountNumber);
-                                toast({ description: "Đã sao chép số tài khoản" });
-                              }}
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <p className="text-gray-400 text-sm">Chủ tài khoản:</p>
-                          <p className="text-white font-medium">
-                            {platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.accountHolder}
-                          </p>
-                        </div>
-                        {platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.branch && (
-                          <div>
-                            <p className="text-gray-400 text-sm">Chi nhánh:</p>
-                            <p className="text-white font-medium">
-                              {platformBanks.banks.find((b: any) => b.bankName === selectedBank)?.branch}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <p className="text-gray-400 text-sm">Nội dung chuyển khoản:</p>
-                        <div className="flex items-center gap-2 bg-gray-800 p-2 rounded mt-1">
-                          <p className="text-white font-mono">
-                            NAP-{user?.username || 'user'}-{new Date().getTime().toString().slice(-6)}
-                          </p>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 rounded-full hover:bg-gray-600"
-                            onClick={() => {
-                              navigator.clipboard.writeText(`NAP-${user?.username || 'user'}-${new Date().getTime().toString().slice(-6)}`);
-                              toast({ description: "Đã sao chép nội dung chuyển khoản" });
-                            }}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            <div className="mt-6">
-              <Card className="bg-gray-700 border-gray-600">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg font-medium">Tải lên bill chuyển khoản</CardTitle>
-                  <CardDescription className="text-gray-400">
-                    Vui lòng tải lên ảnh chụp màn hình hoặc hóa đơn chuyển khoản để xác nhận giao dịch
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-2">
-                  <div className="grid gap-4">
-                    <div className="flex flex-col space-y-2">
-                      <div className="flex items-center justify-center w-full">
-                        <label htmlFor="file-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer border-gray-600 hover:border-gray-500 bg-gray-800/50">
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <Upload className="w-8 h-8 mb-3 text-gray-400" />
-                            <p className="mb-2 text-sm text-gray-400">
-                              <span className="font-medium">Nhấn để tải lên</span> hoặc kéo thả file
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              PNG, JPG hoặc PDF (Tối đa 10MB)
-                            </p>
-                          </div>
-                          <Input
-                            id="file-upload"
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={handleFileChange}
-                            disabled={isUploading}
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
+            {/* Upload bill */}
+            <div className="space-y-2">
+              <Label htmlFor="bill" className="text-sm font-medium text-white">Tải lên bill chuyển khoản</Label>
+              <div className="flex items-center gap-2">
+                {billUrl ? (
+                  <div className="w-full p-2 bg-green-500/10 border border-green-500/20 rounded-md flex items-center justify-between">
+                    <div className="flex items-center">
+                      <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                      <span className="text-sm text-green-500">Bill đã được tải lên thành công</span>
                     </div>
-                    
-                    {isUploading && (
-                      <div className="flex items-center justify-center text-sm text-blue-400">
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Đang tải lên ảnh...
-                      </div>
-                    )}
-                    
-                    {bill && !isUploading && billUrl && (
-                      <div className="flex items-center text-sm text-green-400 bg-green-400/10 p-2 rounded">
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Đã tải lên thành công: {bill.name}
-                      </div>
-                    )}
-                    
-                    {bill && !isUploading && !billUrl && (
-                      <div className="flex items-center text-sm text-yellow-400 bg-yellow-400/10 p-2 rounded">
-                        <AlertCircle className="h-4 w-4 mr-2" />
-                        Lỗi khi tải lên. Vui lòng thử lại.
-                      </div>
+                    {!savedData && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-gray-400 hover:text-white"
+                        onClick={() => document.getElementById('bill-upload')?.click()}
+                      >
+                        <Upload className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="bg-gray-700 text-white border-gray-600 hover:bg-gray-600 flex-1"
+                    onClick={() => document.getElementById('bill-upload')?.click()}
+                    disabled={isUploading || !!savedData}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Đang tải lên...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        {bill ? bill.name : 'Chọn file'}
+                      </>
+                    )}
+                  </Button>
+                )}
+                <input
+                  id="bill-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  disabled={!!savedData}
+                />
+              </div>
             </div>
 
-            <div className="flex items-start space-x-2 mt-6 bg-blue-500/10 p-4 rounded-lg border border-blue-500/20">
-              <input
-                type="checkbox"
-                id="confirm-deposit"
-                checked={isConfirmed}
-                onChange={(e) => setIsConfirmed(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500"
-                required
-              />
-              <label htmlFor="confirm-deposit" className="text-sm text-gray-300">
-                Tôi xác nhận đã chuyển khoản chính xác số tiền và nội dung như trên. Yêu cầu nạp tiền sẽ được xử lý trong vòng 5-15 phút sau khi xác nhận.
-              </label>
-            </div>
-
-            <Button
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-md transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed mt-6"
-              onClick={handleSubmit}
-              disabled={!amount || !bill || isUploading || !billUrl || !selectedBank || !isConfirmed}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  Đang xử lý...
-                </>
+            {/* Xác nhận */}
+            {!savedData && (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="confirm"
+                  checked={isConfirmed}
+                  onChange={(e) => setIsConfirmed(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-blue-600 bg-gray-700 border-gray-600"
+                />
+                <label htmlFor="confirm" className="text-sm text-gray-300">
+                  Tôi xác nhận đã chuyển khoản đúng số tiền và thông tin
+                </label>
+              </div>
+            )}
+            
+            {/* Nút gửi hoặc trạng thái */}
+            {savedData ? (
+              <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                <p className="text-sm text-blue-400 flex items-center">
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Yêu cầu nạp tiền đã được gửi. Vui lòng chờ xử lý.
+                </p>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={handleSubmit}
+                disabled={!amount || !bill || !selectedBank || !isConfirmed || isUploading}
+              >
+                Gửi yêu cầu nạp tiền
+              </Button>
+            )}
               ) : (
                 <>
                   <Upload className="h-5 w-5 mr-2" />

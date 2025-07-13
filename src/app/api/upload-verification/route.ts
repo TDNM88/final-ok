@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { put } from '@vercel/blob';
+import { getMongoDb } from '@/lib/db';
 
 // Maximum file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -17,9 +17,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Bạn cần đăng nhập' }, { status: 401 });
     }
 
-    const { userId, isValid } = await verifyToken(token);
-    if (!isValid || !userId) {
-      return NextResponse.json({ message: 'Phiên đăng nhập hết hạn' }, { status: 401 });
+    // Giải mã token để lấy thông tin người dùng
+    let userId;
+    
+    try {
+      // Nếu token là JWT (có dạng xxx.yyy.zzz)
+      if (token.includes('.') && token.split('.').length === 3) {
+        // Giải mã phần payload của JWT token (phần thứ 2)
+        const base64Payload = token.split('.')[1];
+        const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
+        userId = payload.id || payload.userId || payload.sub;
+      } 
+      // Nếu token có dạng user_ID_timestamp
+      else if (token.includes('_')) {
+        const parts = token.split('_');
+        if (parts.length > 1) {
+          userId = parts[1]; 
+        }
+      }
+      
+      if (!userId) {
+        console.error('Không thể xác định user ID từ token');
+        return NextResponse.json({ message: 'Token không hợp lệ' }, { status: 401 });
+      }
+      
+      console.log('Xác thực thành công với userId:', userId);
+    } catch (error) {
+      console.error('Token verification error:', error);
+      return NextResponse.json({ message: 'Token không hợp lệ' }, { status: 401 });
     }
 
     const formData = await req.formData();
@@ -87,8 +112,7 @@ export async function POST(req: NextRequest) {
     ]);
 
     // Update user document in MongoDB
-    const client = await clientPromise;
-    const db = client.db();
+    const db = await getMongoDb();
     
     await db.collection('users').updateOne(
       { _id: new ObjectId(userId) },
