@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
-import clientPromise from '@/lib/mongodb';
-import { put } from '@vercel/blob';
 import { getMongoDb } from '@/lib/db';
+import { uploadFile } from '@/lib/fileUpload';
 
 // Maximum file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -99,16 +98,10 @@ export async function POST(req: NextRequest) {
     const frontPathname = `verification/${frontFileName}`;
     const backPathname = `verification/${backFileName}`;
 
-    // Upload both files to Vercel Blob
-    const [frontBlob, backBlob] = await Promise.all([
-      put(frontPathname, cccdFront, {
-        access: 'public',
-        addRandomSuffix: false,
-      }),
-      put(backPathname, cccdBack, {
-        access: 'public',
-        addRandomSuffix: false,
-      })
+    // Upload both files using the fileUpload utility
+    const [frontUrl, backUrl] = await Promise.all([
+      uploadFile(cccdFront),
+      uploadFile(cccdBack)
     ]);
 
     // Update user document in MongoDB
@@ -118,8 +111,8 @@ export async function POST(req: NextRequest) {
       { _id: new ObjectId(userId) },
       { 
         $set: { 
-          'verification.cccdFront': frontBlob.url,
-          'verification.cccdBack': backBlob.url,
+          'verification.cccdFront': frontUrl,
+          'verification.cccdBack': backUrl,
           'verification.verified': false,
           'verification.status': 'pending',
           'verification.submittedAt': new Date()
@@ -135,8 +128,8 @@ export async function POST(req: NextRequest) {
       success: true, 
       message: 'Tải lên thành công',
       urls: {
-        front: frontBlob.url,
-        back: backBlob.url
+        front: frontUrl,
+        back: backUrl
       }
     });
 

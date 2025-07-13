@@ -176,7 +176,15 @@ export function BankInfoSection() {
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Đối với trường accountNumber, chỉ cho phép nhập số
+    if (name === 'accountNumber') {
+      // Loại bỏ tất cả ký tự không phải số
+      const numericValue = value.replace(/\D/g, '');
+      setFormData(prev => ({ ...prev, [name]: numericValue }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   }, []);
 
   const handleSubmit = useCallback(async (e: FormEvent) => {
@@ -195,6 +203,26 @@ export function BankInfoSection() {
       toast({
         title: "Lỗi",
         description: "Vui lòng điền đầy đủ thông tin",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Kiểm tra độ dài số tài khoản
+    if (formData.accountNumber.length < 8) {
+      toast({
+        title: "Lỗi",
+        description: "Số tài khoản phải có ít nhất 8 ký tự",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Kiểm tra số tài khoản chỉ chứa số
+    if (!/^\d+$/.test(formData.accountNumber)) {
+      toast({
+        title: "Lỗi",
+        description: "Số tài khoản chỉ được chứa các chữ số",
         variant: "destructive"
       });
       return;

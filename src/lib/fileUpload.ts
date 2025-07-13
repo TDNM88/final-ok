@@ -14,7 +14,8 @@ export async function uploadFile(file: File): Promise<string> {
       access: 'public', // Công khai để có thể truy cập URL mà không cần xác thực
       contentType: file.type || 'application/octet-stream',
       cacheControlMaxAge: 31536000, // Cache 1 năm (60 * 60 * 24 * 365)
-      token: process.env.tdnm9988_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN, // Sử dụng biến môi trường tùy chỉnh
+      // Sử dụng biến môi trường BLOB_READ_WRITE_TOKEN
+      token: process.env.BLOB_READ_WRITE_TOKEN,
     });
     
     // Trả về URL công khai để truy cập file
