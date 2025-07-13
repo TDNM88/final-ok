@@ -4,10 +4,10 @@ import { put } from '@vercel/blob';
  * Utility để upload file sử dụng Vercel Blob Storage
  * File được lưu với tên duy nhất và trả về URL để truy cập file
  */
-export async function uploadFile(file: File): Promise<string> {
+export async function uploadFile(file: File, pathname?: string): Promise<string> {
   try {
-    // Tạo tên file duy nhất để tránh trùng lặp
-    const uniqueFilename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    // Sử dụng pathname nếu được cung cấp, nếu không thì tạo tên file duy nhất
+    const uniqueFilename = pathname || `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
     
     // Upload file lên Vercel Blob Storage với biến môi trường tùy chỉnh
     const { url } = await put(uniqueFilename, file, {

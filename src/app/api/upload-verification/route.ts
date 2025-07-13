@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
 
     // Upload both files using the fileUpload utility
     const [frontUrl, backUrl] = await Promise.all([
-      uploadFile(cccdFront),
-      uploadFile(cccdBack)
+      uploadFile(cccdFront, frontPathname),
+      uploadFile(cccdBack, backPathname)
     ]);
 
     // Update user document in MongoDB
