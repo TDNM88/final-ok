@@ -50,10 +50,13 @@ export default function WithdrawPage() {
   const [isVerified, setIsVerified] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { data: settings, error: settingsError } = useSWR(
-    token ? '/api/admin/settings' : null,
+  const { data: settingsData, error: settingsError } = useSWR(
+    token ? '/api/settings' : null,
     url => fetch(url, { headers: { Authorization: `Bearer ${token}` } }).then(res => res.json())
   );
+  
+  // Truy cập settings từ response data
+  const settings = settingsData?.settings;
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -87,11 +90,11 @@ export default function WithdrawPage() {
       return;
     }
 
-    if (settings && (Number(amount) < settings.minWithdrawal || Number(amount) > settings.maxWithdrawal)) {
+    if (settings && (Number(amount) < settings.withdrawals.minAmount || Number(amount) > settings.withdrawals.maxAmount)) {
       toast({
         variant: 'destructive',
         title: 'Lỗi',
-        description: `Số tiền rút phải từ ${settings.minWithdrawal.toLocaleString()} đ đến ${settings.maxWithdrawal.toLocaleString()} đ`,
+        description: `Số tiền rút phải từ ${settings.withdrawals.minAmount.toLocaleString()} đ đến ${settings.withdrawals.maxAmount.toLocaleString()} đ`,
       });
       return;
     }
@@ -187,7 +190,7 @@ export default function WithdrawPage() {
                 </div>
                 {settings && (
                   <p className="text-sm text-gray-400 mt-1">
-                    Số tiền rút tối thiểu: {settings.minWithdrawal?.toLocaleString()} VND
+                    Số tiền rút tối thiểu: {settings.withdrawals.minAmount.toLocaleString()} VND
                   </p>
                 )}
               </div>
