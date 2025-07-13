@@ -302,10 +302,7 @@ export function BankInfoSection() {
         <p className="text-sm text-gray-400">ID: {user?._id || user?.id || 'N/A'}</p>
         <p className="text-sm text-gray-400">Ngày đăng ký: {formatDate(user?.createdAt) || 'N/A'}</p>
         <div className="mt-3">
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
-            ${isVerified ? 'bg-green-900/30 text-green-400' : 
-              isPending ? 'bg-yellow-900/30 text-yellow-400' : 
-              'bg-orange-900/30 text-orange-400'}`}>
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${isVerified ? 'bg-green-900/30 text-green-400' : isPending ? 'bg-yellow-900/30 text-yellow-400' : 'bg-orange-900/30 text-orange-400'}`}>
             {isVerified ? <CheckCircle className="w-4 h-4 mr-1" /> : 
              isPending ? <AlertTriangle className="w-4 h-4 mr-1" /> : 
              <XCircle className="w-4 h-4 mr-1" />}
