@@ -121,31 +121,43 @@ export default function DepositPage() {
     setBillUrl(null);
     
     try {
+      // Lấy token từ localStorage
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') || localStorage.getItem('authToken') : null;
+      
+      if (!token) {
+        throw new Error('Không tìm thấy token xác thực');
+      }
+      
+      // Sử dụng API upload-deposit-bill thay vì API upload
       const formData = new FormData();
       formData.append('file', file);
       
-      const response = await fetch('/api/upload', {
+      const response = await fetch('/api/upload-deposit-bill', {
         method: 'POST',
-        credentials: 'include', // Include session cookie
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData,
       });
       
       if (!response.ok) {
-        throw new Error('Upload thất bại');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Upload error:', response.status, errorData);
+        throw new Error(`Upload thất bại: ${response.status} ${errorData.message || ''}`);
       }
       
       const data = await response.json();
       setBillUrl(data.url);
       toast({
         title: 'Thành công',
-        description: 'Tải lên ảnh thành công',
+        description: 'Tải lên bill chuyển khoản thành công',
       });
     } catch (error) {
-      console.error('Lỗi khi tải lên ảnh:', error);
+      console.error('Lỗi khi tải lên bill:', error);
       toast({
         variant: 'destructive',
         title: 'Lỗi',
-        description: 'Không thể tải lên ảnh. Vui lòng thử lại.',
+        description: 'Không thể tải lên bill chuyển khoản. Vui lòng thử lại.',
       });
       setBill(null);
     } finally {

@@ -22,9 +22,12 @@ export async function POST(req: NextRequest) {
     }
 
     const user = await verifyToken(token);
-    if (!user || !user.userId) {
+    if (!user || (!user.userId && !user.id)) {
       return NextResponse.json({ message: 'Token không hợp lệ' }, { status: 401 });
     }
+    
+    // Sử dụng user.id nếu user.userId không tồn tại
+    const userId = user.userId || user.id;
 
     // Xử lý form data
     console.log('Processing form data...');
@@ -71,7 +74,7 @@ export async function POST(req: NextRequest) {
 
       // Lưu thông tin bill vào collection deposits
       const depositData = {
-        userId: new ObjectId(user.userId),
+        userId: new ObjectId(userId),
         billUrl: fileUrl,
         status: 'pending', // pending, approved, rejected
         createdAt: new Date(),
