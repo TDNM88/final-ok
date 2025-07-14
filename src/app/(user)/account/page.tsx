@@ -6,7 +6,16 @@ import { useAuth } from '@/lib/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import Link from 'next/link';
-import { Menu, X, Loader2 } from 'lucide-react';
+import { Menu, X, Loader2, CheckCircle } from 'lucide-react';
+
+// Mở rộng interface cho bank info để bao gồm các trường verified và pendingVerification
+interface BankInfo {
+  name: string;
+  accountNumber: string;
+  accountHolder: string;
+  verified?: boolean;
+  pendingVerification?: boolean;
+}
 
 export default function AccountPage() {
   const { user, isLoading, logout, refreshUser } = useAuth();
@@ -27,6 +36,100 @@ export default function AccountPage() {
     const storedToken = localStorage.getItem('token') || localStorage.getItem('authToken');
     setToken(storedToken);
   }, []);
+  
+  // Kiểm tra trạng thái xác minh ngân hàng từ dữ liệu người dùng và localStorage
+  useEffect(() => {
+    // Thêm biến để kiểm tra xem useEffect đã chạy xong chưa
+    let isMounted = true;
+    
+    const checkBankVerification = async () => {
+      if (!user) return;
+      
+      console.log('Checking bank verification status for user:', user.id);
+      let isVerifiedStatus = false;
+      
+      // Đầu tiên, kiểm tra trạng thái xác minh từ localStorage
+      // Vì localStorage có thể chứa thông tin mới nhất sau khi người dùng đã gửi form
+      try {
+        const storedBankInfo = localStorage.getItem('userBankInfo');
+        console.log('Stored bank info from localStorage:', storedBankInfo);
+        
+        if (storedBankInfo) {
+          const bankInfo = JSON.parse(storedBankInfo);
+          console.log('Parsed bank info from localStorage:', bankInfo);
+          
+          // Kiểm tra xem thông tin có thuộc về người dùng hiện tại không
+          if (bankInfo.userId === user.id) {
+            console.log('Bank info matches current user');
+            
+            // Cập nhật form với dữ liệu từ localStorage
+            if (isMounted) {
+              setBankForm({
+                fullName: bankInfo.accountHolder || '',
+                bankType: 'Ngân hàng',
+                bankName: bankInfo.bankName || '',
+                accountNumber: bankInfo.accountNumber || ''
+              });
+            }
+            
+            // Kiểm tra trạng thái xác minh
+            if (bankInfo.verified === true || bankInfo.pendingVerification === true) {
+              console.log('Setting verified status from localStorage to TRUE');
+              isVerifiedStatus = true;
+              if (isMounted) {
+                setIsVerified(true);
+              }
+              return; // Thoát khỏi hàm nếu đã xác minh từ localStorage
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error reading bank info from localStorage:', error);
+      }
+      
+      // Nếu không có dữ liệu từ localStorage hoặc không có trạng thái xác minh, kiểm tra từ server
+      if (user.bank) {
+        console.log('User bank data from server:', user.bank);
+        
+        // Cập nhật form với dữ liệu từ user.bank
+        if (isMounted) {
+          setBankForm({
+            fullName: user.bank.accountHolder || '',
+            bankType: 'Ngân hàng',
+            bankName: user.bank.name || '',
+            accountNumber: user.bank.accountNumber || ''
+          });
+        }
+        
+        // Kiểm tra trạng thái xác minh từ user.bank (sử dụng type assertion)
+        const bankInfo = user.bank as any;
+        console.log('Bank info with type assertion:', bankInfo);
+        
+        // Kiểm tra các trường hợp có thể xảy ra
+        if (bankInfo.verified === true || bankInfo.pendingVerification === true) {
+          console.log('Setting verified status from server data to TRUE');
+          isVerifiedStatus = true;
+          if (isMounted) {
+            setIsVerified(true);
+          }
+          return;
+        }
+      }
+      
+      // Nếu không có trạng thái xác minh từ cả localStorage và server, đặt isVerified = false
+      console.log('Setting verified status to FALSE');
+      if (isMounted) {
+        setIsVerified(false);
+      }
+    };
+    
+    checkBankVerification();
+    
+    // Cleanup function để tránh memory leak
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
   
   // Sử dụng searchParams một cách an toàn
   let searchParams: URLSearchParams | null = null;
@@ -79,19 +182,26 @@ export default function AccountPage() {
     }
   };
 
-  // Handle file upload
-  const handleUpload = async (type: 'front' | 'back') => {
-    const file = type === 'front' ? frontIdFile : backIdFile;
-    if (!file) return;
+  // Handle file upload cho cả hai mặt CCCD/CMND cùng lúc
+  const handleUploadBothSides = async () => {
+    // Kiểm tra cả hai file đã được chọn
+    if (!frontIdFile || !backIdFile) {
+      toast({ 
+        variant: 'destructive', 
+        title: 'Lỗi', 
+        description: 'Vui lòng tải lên cả mặt trước và mặt sau CCCD/CMND' 
+      });
+      return;
+    }
 
     setIsUploading(true);
     
     try {
       const formData = new FormData();
-      formData.append('document', file);
-      formData.append('type', type);
+      formData.append('frontDocument', frontIdFile);
+      formData.append('backDocument', backIdFile);
       
-      const res = await fetch('/api/upload-verification', {  // Sửa lại đường dẫn API
+      const res = await fetch('/api/upload-verification', {
         method: 'POST',
         headers: {
           'Authorization': token ? `Bearer ${token}` : ''
@@ -103,29 +213,44 @@ export default function AccountPage() {
       
       if (res.ok && data.success) {
         // Cập nhật UI sau khi upload thành công
-        if (type === 'front') {
-          setFrontIdFile(null); // Reset file input
-          const input = document.getElementById('frontId') as HTMLInputElement;
-          if (input) input.value = '';
-        } else {
-          setBackIdFile(null); // Reset file input
-          const input = document.getElementById('backId') as HTMLInputElement;
-          if (input) input.value = '';
-        }
+        setFrontIdFile(null); // Reset file input
+        setBackIdFile(null); // Reset file input
+        
+        const frontInput = document.getElementById('frontId') as HTMLInputElement;
+        const backInput = document.getElementById('backId') as HTMLInputElement;
+        if (frontInput) frontInput.value = '';
+        if (backInput) backInput.value = '';
         
         toast({ 
           title: 'Thành công', 
-          description: data.message || `Đã tải lên ${type === 'front' ? 'mặt trước' : 'mặt sau'} thành công` 
+          description: data.message || 'Xác minh danh tính đã được gửi đi thành công' 
         });
+        
+        // Cập nhật trạng thái xác minh
+        refreshUser();
       } else {
         throw new Error(data.message || 'Có lỗi xảy ra khi tải lên');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      toast({ variant: 'destructive', title: 'Lỗi', description: 'Không thể kết nối đến máy chủ' });
+      toast({ 
+        variant: 'destructive', 
+        title: 'Lỗi', 
+        description: error.message || 'Không thể kết nối đến máy chủ' 
+      });
     } finally {
       setIsUploading(false);
     }
+  };
+  
+  // Hàm này chỉ để xem trước file đã chọn, không gửi API
+  const handleFilePreview = (type: 'front' | 'back') => {
+    const file = type === 'front' ? frontIdFile : backIdFile;
+    if (!file) return;
+    
+    // Tạo URL tạm thời để xem trước file
+    const previewUrl = URL.createObjectURL(file);
+    window.open(previewUrl, '_blank');
   };
   
   // Xử lý query parameter tab từ URL
@@ -248,35 +373,122 @@ export default function AccountPage() {
   // Submit bank information
   const handleSubmitBankInfo = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Submitting bank info form');
+    
+    // Kiểm tra nếu thông tin đã được xác minh hoặc đang chờ xác minh
+    if (isVerified) {
+      console.log('Cannot edit: bank info is already verified');
+      toast({ 
+        variant: 'destructive', 
+        title: 'Không thể chỉnh sửa', 
+        description: 'Thông tin ngân hàng đã được xác minh và không thể chỉnh sửa' 
+      });
+      return;
+    }
     
     // Validate form
     if (!bankForm.fullName || !bankForm.bankName || !bankForm.accountNumber) {
+      console.log('Form validation failed');
       toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập đầy đủ thông tin' });
       return;
     }
     
     setIsSaving(true);
+    console.log('Sending API request to update bank info');
     
     try {
-      const res = await fetch('/api/users/bank-info', {
+      // Lấy token từ localStorage trực tiếp để đảm bảo token mới nhất
+      const currentToken = localStorage.getItem('token') || localStorage.getItem('authToken');
+      console.log('Using token for API request:', currentToken ? 'Found' : 'Not found');
+      
+      // Kiểm tra xem token có được lấy đúng không
+      if (!currentToken) {
+        console.error('No auth token found in localStorage');
+        toast({ variant: 'destructive', title: 'Lỗi xác thực', description: 'Không tìm thấy token xác thực. Vui lòng đăng nhập lại.' });
+        return;
+      }
+      
+      // Thử sử dụng API endpoint khác
+      const apiUrl = '/api/user/save-bank-info';
+      console.log('Using API endpoint:', apiUrl);
+      
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          Authorization: token ? `Bearer ${token}` : ''
+          'Authorization': `Bearer ${currentToken}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
         },
+        credentials: 'include', // Thêm credentials để gửi cookie nếu có
         body: JSON.stringify({
           accountHolder: bankForm.fullName,
-          name: bankForm.bankName,
+          bankName: bankForm.bankName,
           accountNumber: bankForm.accountNumber
         }),
       });
       
       const data = await res.json();
+      console.log('API response:', data);
       
-      if (res.ok) {
-        toast({ title: 'Thành công', description: 'Thông tin ngân hàng đã được cập nhật' });
+      if (res.ok && data.success) {
+        toast({ title: 'Thành công', description: data.message || 'Thông tin ngân hàng đã được cập nhật' });
+        
+        // Lưu thông tin vào localStorage với trạng thái pendingVerification = true
+        try {
+          // Đảm bảo có userId trước khi lưu
+          if (!user?.id) {
+            console.error('Cannot save bank info: user ID is missing');
+            toast({ 
+              variant: 'destructive', 
+              title: 'Lỗi', 
+              description: 'Không thể lưu thông tin ngân hàng: thiếu ID người dùng' 
+            });
+            return;
+          }
+          
+          const bankInfo = {
+            userId: user.id,
+            accountHolder: bankForm.fullName,
+            bankName: bankForm.bankName,
+            accountNumber: bankForm.accountNumber,
+            pendingVerification: true,
+            verified: false,
+            timestamp: new Date().toISOString()
+          };
+          
+          // Lưu vào localStorage
+          localStorage.setItem('userBankInfo', JSON.stringify(bankInfo));
+          console.log('Saved bank info to localStorage with pendingVerification=true');
+          
+          // Cập nhật trạng thái để hiển thị thông tin dạng readonly
+          console.log('Setting isVerified to true');
+          setIsVerified(true);
+          
+          // Cập nhật dữ liệu người dùng từ server
+          console.log('Refreshing user data from server');
+          await refreshUser();
+          
+          // Đảm bảo UI được cập nhật đồng bộ
+          // Sử dụng setTimeout để đảm bảo các thay đổi state được áp dụng trước khi render lại
+          setTimeout(() => {
+            console.log('Force re-render with current state:', { isVerified, bankForm });
+            // Gọi lại hàm kiểm tra trạng thái xác minh để đảm bảo UI được cập nhật
+            setIsVerified(prev => {
+              console.log('Re-confirming verified status is TRUE');
+              return true; // Đảm bảo isVerified luôn là true sau khi submit thành công
+            });
+          }, 300);
+        } catch (error) {
+          console.error('Error saving bank info to localStorage:', error);
+        }
       } else {
-        toast({ variant: 'destructive', title: 'Lỗi', description: data.message || 'Không thể cập nhật thông tin' });
+        console.log('API error:', data.message);
+        toast({ 
+          variant: 'destructive', 
+          title: 'Lỗi', 
+          description: data.message || 'Không thể cập nhật thông tin ngân hàng' 
+        });
       }
     } catch (error) {
       console.error('Bank info update error:', error);
@@ -405,57 +617,72 @@ return (
         )}
 
         {activeTab === 'bank' && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center mb-2">
+          <div className="space-y-6" key={`bank-info-section-${isVerified ? 'verified' : 'editable'}`}>
+            <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-medium">Thông tin ngân hàng</h2>
+              {/* Hiển thị trạng thái xác minh */}
               {isVerified && (
-                <span className="bg-green-600 text-white text-xs px-3 py-1 rounded">
-                  Đã xác minh
+                <span className="bg-green-600 text-white text-xs px-3 py-1 rounded flex items-center">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  {(user?.bank as BankInfo)?.verified ? 'Đã xác minh' : 'Đang chờ xác minh'}
                 </span>
               )}
             </div>
             
+            {/* Debug info - sẽ xóa sau khi hoàn thành */}
+            <div className="bg-gray-800 p-2 text-xs text-gray-400 rounded mb-2">
+              <p>Debug: isVerified = {isVerified ? 'true' : 'false'}</p>
+              <p>Bank form data: {JSON.stringify(bankForm)}</p>
+              <p>localStorage: {typeof window !== 'undefined' ? localStorage.getItem('userBankInfo') : 'N/A'}</p>
+            </div>
+            
             {isVerified ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-400 mb-1">Họ tên</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white" 
-                    value={bankForm.fullName} 
-                    readOnly 
-                  />
+              <div className="space-y-4" key="verified-bank-info-display">
+                {/* Thông báo xác minh */}
+                <div className="mb-4">
+                  <div className="bg-green-100 border-l-4 border-green-500 text-green-800 p-4 rounded">
+                    <div className="flex items-center">
+                      <CheckCircle className="h-5 w-5 mr-2" />
+                      <p>{(user?.bank as BankInfo)?.verified 
+                        ? 'Thông tin ngân hàng đã được xác minh và không thể chỉnh sửa.'
+                        : 'Thông tin ngân hàng đã được gửi và đang chờ xác minh. Không thể chỉnh sửa trong thời gian này.'}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-gray-400 mb-1">Loại</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white" 
-                    value={bankForm.bankType} 
-                    readOnly 
-                  />
+                
+                {/* Hiển thị thông tin ngân hàng dạng readonly */}
+                <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-gray-400 mb-1 text-sm">Họ tên chủ tài khoản</label>
+                      <div className="font-medium text-white">{bankForm.fullName}</div>
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1 text-sm">Loại tài khoản</label>
+                      <div className="font-medium text-white">{bankForm.bankType}</div>
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1 text-sm">Ngân hàng</label>
+                      <div className="font-medium text-white">{bankForm.bankName}</div>
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1 text-sm">Số tài khoản</label>
+                      <div className="font-medium text-white">{bankForm.accountNumber}</div>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-gray-400 mb-1">Ngân hàng</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white" 
-                    value={bankForm.bankName} 
-                    readOnly 
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-400 mb-1">Số tài khoản</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white" 
-                    value={bankForm.accountNumber} 
-                    readOnly 
-                  />
+                
+                <div className="mt-2 text-sm text-gray-400">
+                  <p>Thông tin này đã được lưu vào hệ thống và sẽ được sử dụng cho các giao dịch rút tiền.</p>
+                  <p>Nếu cần thay đổi, vui lòng liên hệ với quản trị viên.</p>
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmitBankInfo} className="space-y-4">
+              <form onSubmit={handleSubmitBankInfo} className="space-y-4" key="bank-info-edit-form">
+                <div className="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded mb-4">
+                  <p className="text-sm">Vui lòng nhập chính xác thông tin ngân hàng của bạn. Sau khi xác nhận, thông tin này sẽ không thể chỉnh sửa.</p>
+                </div>
+                
                 <div>
                   <label className="block text-gray-400 mb-1">Họ tên <span className="text-red-500">*</span></label>
                   <input 
@@ -503,11 +730,11 @@ return (
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-md transition-colors"
                   disabled={isSaving}
                 >
-                  {isSaving ? 'Đang xử lý...' : 'Xác nhận'}
+                  {isSaving ? 'Đang xử lý...' : 'Xác nhận và Lưu'}
                 </button>
                 
                 <div className="mt-4 bg-orange-100 border-l-4 border-orange-500 text-orange-800 p-3">
-                  <p className="text-sm">Thông tin ngân hàng là bắt buộc để thực hiện lệnh rút tiền.</p>
+                  <p className="text-sm"><strong>Lưu ý:</strong> Thông tin ngân hàng là bắt buộc để thực hiện lệnh rút tiền và sẽ không thể chỉnh sửa sau khi xác nhận.</p>
                 </div>
               </form>
             )}
@@ -517,77 +744,101 @@ return (
         {activeTab === 'verify' && (
           <div className="space-y-6">
             <h2 className="text-xl font-medium mb-4">Xác minh danh tính</h2>
-            <p className="text-gray-300">Vui lòng tải lên các giấy tờ tùy thân để xác minh danh tính của bạn</p>
-            <div className="grid grid-cols-1 gap-4 mt-4 max-w-2xl mx-auto">
-              <div>
-                <label className="block text-gray-400 mb-1">CMND/CCCD mặt trước</label>
-                <div className="border-2 border-dashed border-gray-700 p-6 rounded-lg text-center">
-                  <p className="text-gray-500">Kéo và thả hoặc click để tải file lên</p>
-                  <input 
-                    id="frontId"
-                    type="file" 
-                    className="hidden" 
-                    onChange={(e) => handleFileChange(e, 'front')}
-                    accept="image/*,.pdf"
-                  />
-                  <Button 
-                    type="button"
-                    className="mt-2 bg-blue-600 hover:bg-blue-700"
-                    onClick={() => document.getElementById('frontId')?.click()}
-                    disabled={isUploading}
-                  >
-                    {isUploading ? 'Đang tải lên...' : 'Chọn file'}
-                  </Button>
-                  {frontIdFile && (
-                    <div className="mt-2 text-sm text-gray-400">
-                      Đã chọn: {frontIdFile.name}
-                      <Button 
-                        type="button"
-                        className="ml-2 bg-green-600 hover:bg-green-700 text-xs py-0 h-6"
-                        onClick={() => handleUpload('front')}
-                        disabled={isUploading}
-                      >
-                        Tải lên
-                      </Button>
-                    </div>
-                  )}
+            <p className="text-gray-300">Vui lòng tải lên cả mặt trước và mặt sau CMND/CCCD để xác minh danh tính của bạn</p>
+            
+            {user?.verification?.verified ? (
+              <div className="bg-green-100 border-l-4 border-green-500 text-green-800 p-4 rounded">
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 mr-2" />
+                  <p>Danh tính của bạn đã được xác minh thành công!</p>
                 </div>
               </div>
-              <div>
-                <label className="block text-gray-400 mb-1">CMND/CCCD mặt sau</label>
-                <div className="border-2 border-dashed border-gray-700 p-6 rounded-lg text-center">
-                  <p className="text-gray-500">Kéo và thả hoặc click để tải file lên</p>
-                  <input 
-                    id="backId"
-                    type="file" 
-                    className="hidden" 
-                    onChange={(e) => handleFileChange(e, 'back')}
-                    accept="image/*,.pdf"
-                  />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 max-w-3xl mx-auto">
+                <div>
+                  <label className="block text-gray-400 mb-1">CMND/CCCD mặt trước <span className="text-red-500">*</span></label>
+                  <div className="border-2 border-dashed border-gray-700 p-6 rounded-lg text-center">
+                    <p className="text-gray-500">Kéo và thả hoặc click để tải file lên</p>
+                    <input 
+                      id="frontId"
+                      type="file" 
+                      className="hidden" 
+                      onChange={(e) => handleFileChange(e, 'front')}
+                      accept="image/*,.pdf"
+                    />
+                    <Button 
+                      type="button"
+                      className="mt-2 bg-blue-600 hover:bg-blue-700"
+                      onClick={() => document.getElementById('frontId')?.click()}
+                      disabled={isUploading}
+                    >
+                      {isUploading ? 'Đang xử lý...' : 'Chọn file'}
+                    </Button>
+                    {frontIdFile && (
+                      <div className="mt-2 text-sm text-gray-400">
+                        Đã chọn: {frontIdFile.name}
+                        <Button 
+                          type="button"
+                          className="ml-2 bg-blue-600 hover:bg-blue-700 text-xs py-0 h-6"
+                          onClick={() => handleFilePreview('front')}
+                        >
+                          Xem trước
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-gray-400 mb-1">CMND/CCCD mặt sau <span className="text-red-500">*</span></label>
+                  <div className="border-2 border-dashed border-gray-700 p-6 rounded-lg text-center">
+                    <p className="text-gray-500">Kéo và thả hoặc click để tải file lên</p>
+                    <input 
+                      id="backId"
+                      type="file" 
+                      className="hidden" 
+                      onChange={(e) => handleFileChange(e, 'back')}
+                      accept="image/*,.pdf"
+                    />
+                    <Button 
+                      type="button"
+                      className="mt-2 bg-blue-600 hover:bg-blue-700"
+                      onClick={() => document.getElementById('backId')?.click()}
+                      disabled={isUploading}
+                    >
+                      {isUploading ? 'Đang xử lý...' : 'Chọn file'}
+                    </Button>
+                    {backIdFile && (
+                      <div className="mt-2 text-sm text-gray-400">
+                        Đã chọn: {backIdFile.name}
+                        <Button 
+                          type="button"
+                          className="ml-2 bg-blue-600 hover:bg-blue-700 text-xs py-0 h-6"
+                          onClick={() => handleFilePreview('back')}
+                        >
+                          Xem trước
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="md:col-span-2 mt-4">
                   <Button 
                     type="button"
-                    className="mt-2 bg-blue-600 hover:bg-blue-700"
-                    onClick={() => document.getElementById('backId')?.click()}
-                    disabled={isUploading}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 rounded-md transition-colors"
+                    onClick={handleUploadBothSides}
+                    disabled={isUploading || !frontIdFile || !backIdFile}
                   >
-                    {isUploading ? 'Đang tải lên...' : 'Chọn file'}
+                    {isUploading ? 'Đang xử lý...' : 'Gửi xác minh danh tính'}
                   </Button>
-                  {backIdFile && (
-                    <div className="mt-2 text-sm text-gray-400">
-                      Đã chọn: {backIdFile.name}
-                      <Button 
-                        type="button"
-                        className="ml-2 bg-green-600 hover:bg-green-700 text-xs py-0 h-6"
-                        onClick={() => handleUpload('back')}
-                        disabled={isUploading}
-                      >
-                        Tải lên
-                      </Button>
-                    </div>
-                  )}
+                  
+                  <div className="mt-4 bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-3">
+                    <p className="text-sm">Lưu ý: Bạn cần tải lên cả hai mặt của CMND/CCCD để hoàn tất xác minh danh tính.</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
