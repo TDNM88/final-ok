@@ -21,10 +21,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Bạn cần đăng nhập' }, { status: 401 });
     }
 
-    const user = await verifyToken(token);
-    if (!user || !user.id) {
-      return NextResponse.json({ message: 'Token không hợp lệ' }, { status: 401 });
+    // Sử dụng hàm verifyToken từ lib/auth để xác thực token
+    const { userId, isValid } = await verifyToken(token);
+    
+    if (!isValid || !userId) {
+      console.error('Token không hợp lệ hoặc không thể xác định user ID');
+      return NextResponse.json({ message: 'Token không hợp lệ hoặc hết hạn' }, { status: 401 });
     }
+    
+    console.log('Xác thực thành công với userId:', userId);
 
     // Xử lý form data
     const formData = await req.formData();
@@ -62,7 +67,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Cập nhật thông tin xác minh
-      const userId = new ObjectId(user.id);
+      const userObjectId = new ObjectId(userId);
       const updateData: any = {
         $set: {
           [`verification.${type === 'front' ? 'cccdFront' : 'cccdBack'}`]: fileUrl,
@@ -76,7 +81,7 @@ export async function POST(req: NextRequest) {
       
       // Cập nhật hoặc tạo mới thông tin xác minh
       const result = await db.collection('users').updateOne(
-        { _id: userId },
+        { _id: userObjectId },
         updateData,
         { upsert: true }
       );
@@ -87,13 +92,13 @@ export async function POST(req: NextRequest) {
 
       // Lấy thông tin cập nhật để kiểm tra
       const updatedUser = await db.collection('users').findOne(
-        { _id: userId },
+        { _id: userObjectId },
         { projection: { 'verification.cccdFront': 1, 'verification.cccdBack': 1 } }
       );
 
       // Kiểm tra nếu đã tải lên đủ 2 mặt
       if (updatedUser?.verification?.cccdFront && updatedUser?.verification?.cccdBack) {
-        console.log(`Người dùng ${user.id} đã tải lên đủ 2 mặt CCCD`);
+        console.log(`Người dùng ${userId} đã tải lên đủ 2 mặt CCCD`);
       }
       
       // Trả về đường dẫn file
