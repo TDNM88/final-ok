@@ -15,16 +15,40 @@ export function generateToken(userId: string): string {
 
 export function parseToken(token: string): { userId: string; timestamp: number } | null {
   try {
-    console.log('Parsing token:', token);
+    console.log('Parsing token:', token ? `${token.substring(0, 10)}...` : 'undefined');
+    
+    if (!token) {
+      console.error('Token is undefined or empty');
+      return null;
+    }
     
     // Handle JWT token format
     if (token.startsWith('eyJ') && token.split('.').length === 3) {
       console.log('Detected JWT token format');
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      return {
-        userId: payload.id || payload.userId || '',
-        timestamp: payload.iat ? payload.iat * 1000 : Date.now()
-      };
+      try {
+        const base64Payload = token.split('.')[1];
+        const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
+        
+        // Log all available fields in payload for debugging
+        console.log('JWT payload fields:', Object.keys(payload));
+        
+        // Try multiple possible ID fields
+        const userId = payload.id || payload.userId || payload.sub || payload._id || payload.user_id;
+        
+        if (!userId) {
+          console.error('No userId found in JWT payload. Available fields:', Object.keys(payload));
+          return null;
+        }
+        
+        console.log('Extracted userId from JWT:', userId);
+        return {
+          userId: userId,
+          timestamp: payload.iat ? payload.iat * 1000 : Date.now()
+        };
+      } catch (jwtError) {
+        console.error('Error parsing JWT token:', jwtError);
+        return null;
+      }
     }
     
     // Handle custom token format: user_<userId>_<timestamp>_<random>
@@ -36,11 +60,25 @@ export function parseToken(token: string): { userId: string; timestamp: number }
       const timestamp = Number(parts[2]);
       
       if (!isNaN(timestamp) && userId) {
+        console.log('Extracted userId from custom token:', userId);
         return { userId, timestamp };
+      } else {
+        console.error('Invalid custom token parts:', { userId, timestamp });
       }
     }
     
-    console.error('Invalid token format');
+    // Last resort: try to find any pattern that looks like a MongoDB ObjectId
+    const objectIdPattern = /([0-9a-fA-F]{24})/;
+    const match = token.match(objectIdPattern);
+    if (match && match[1]) {
+      console.log('Found potential ObjectId in token:', match[1]);
+      return {
+        userId: match[1],
+        timestamp: Date.now() // We don't know the actual timestamp, use current time
+      };
+    }
+    
+    console.error('Invalid token format, could not extract userId');
     return null;
   } catch (error) {
     console.error('Error parsing token:', error);

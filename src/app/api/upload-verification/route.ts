@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 import { getMongoDb } from '@/lib/db';
 import { uploadFile } from '@/lib/fileUpload';
@@ -16,35 +17,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Bạn cần đăng nhập' }, { status: 401 });
     }
 
-    // Giải mã token để lấy thông tin người dùng
-    let userId;
+    // Sử dụng hàm verifyToken từ lib/auth để xác thực token
+    const { userId, isValid } = await verifyToken(token);
     
-    try {
-      // Nếu token là JWT (có dạng xxx.yyy.zzz)
-      if (token.includes('.') && token.split('.').length === 3) {
-        // Giải mã phần payload của JWT token (phần thứ 2)
-        const base64Payload = token.split('.')[1];
-        const payload = JSON.parse(Buffer.from(base64Payload, 'base64').toString());
-        userId = payload.id || payload.userId || payload.sub;
-      } 
-      // Nếu token có dạng user_ID_timestamp
-      else if (token.includes('_')) {
-        const parts = token.split('_');
-        if (parts.length > 1) {
-          userId = parts[1]; 
-        }
-      }
-      
-      if (!userId) {
-        console.error('Không thể xác định user ID từ token');
-        return NextResponse.json({ message: 'Token không hợp lệ' }, { status: 401 });
-      }
-      
-      console.log('Xác thực thành công với userId:', userId);
-    } catch (error) {
-      console.error('Token verification error:', error);
-      return NextResponse.json({ message: 'Token không hợp lệ' }, { status: 401 });
+    if (!isValid || !userId) {
+      console.error('Token không hợp lệ hoặc không thể xác định user ID');
+      return NextResponse.json({ message: 'Token không hợp lệ hoặc hết hạn' }, { status: 401 });
     }
+    
+    console.log('Xác thực thành công với userId:', userId);
 
     const formData = await req.formData();
     const cccdFront = formData.get('cccdFront') as File;
