@@ -202,33 +202,55 @@ export function IdentityVerificationSection() {
     setIsSubmitting(true);
     
     try {
-      const formDataToSubmit = new FormData();
-      formDataToSubmit.append('fullName', formData.fullName);
-      formDataToSubmit.append('cccdFront', frontIdFile);
-      formDataToSubmit.append('cccdBack', backIdFile);
+      // Tải lên mặt trước
+      const frontFormData = new FormData();
+      frontFormData.append('document', frontIdFile);
+      frontFormData.append('type', 'front');
       
-      const response = await fetch('/api/upload-verification', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${getToken()}`
-        },
-        body: formDataToSubmit
-      });
+      // Tải lên mặt sau
+      const backFormData = new FormData();
+      backFormData.append('document', backIdFile);
+      backFormData.append('type', 'back');
       
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || `API error: ${response.status}`);
+      // Gửi cả hai request song song
+      const [frontResponse, backResponse] = await Promise.all([
+        fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          },
+          body: frontFormData
+        }),
+        fetch('/api/upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${getToken()}`
+          },
+          body: backFormData
+        })
+      ]);
+      
+      // Kiểm tra kết quả
+      if (!frontResponse.ok) {
+        const data = await frontResponse.json().catch(() => ({}));
+        throw new Error(data.message || `API error (mặt trước): ${frontResponse.status}`);
       }
       
-      const result = await response.json();
+      if (!backResponse.ok) {
+        const data = await backResponse.json().catch(() => ({}));
+        throw new Error(data.message || `API error (mặt sau): ${backResponse.status}`);
+      }
+      
+      const frontResult = await frontResponse.json();
+      const backResult = await backResponse.json();
       
       // Cập nhật trạng thái xác minh
       setVerificationStatus({
         ...verificationStatus,
         pendingVerification: true,
         submittedAt: new Date().toISOString(),
-        frontIdUrl: result.frontIdUrl || verificationStatus.frontIdUrl,
-        backIdUrl: result.backIdUrl || verificationStatus.backIdUrl
+        frontIdUrl: frontResult.url || verificationStatus.frontIdUrl,
+        backIdUrl: backResult.url || verificationStatus.backIdUrl
       });
       
       // Xóa preview ảnh
