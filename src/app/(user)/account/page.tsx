@@ -45,22 +45,18 @@ export default function AccountPage() {
     const checkBankVerification = async () => {
       if (!user) return;
       
-      console.log('Checking bank verification status for user:', user.id);
       let isVerifiedStatus = false;
       
       // Đầu tiên, kiểm tra trạng thái xác minh từ localStorage
       // Vì localStorage có thể chứa thông tin mới nhất sau khi người dùng đã gửi form
       try {
         const storedBankInfo = localStorage.getItem('userBankInfo');
-        console.log('Stored bank info from localStorage:', storedBankInfo);
         
         if (storedBankInfo) {
           const bankInfo = JSON.parse(storedBankInfo);
-          console.log('Parsed bank info from localStorage:', bankInfo);
           
           // Kiểm tra xem thông tin có thuộc về người dùng hiện tại không
           if (bankInfo.userId === user.id) {
-            console.log('Bank info matches current user');
             
             // Cập nhật form với dữ liệu từ localStorage
             if (isMounted) {
@@ -74,7 +70,6 @@ export default function AccountPage() {
             
             // Kiểm tra trạng thái xác minh
             if (bankInfo.verified === true || bankInfo.pendingVerification === true) {
-              console.log('Setting verified status from localStorage to TRUE');
               isVerifiedStatus = true;
               if (isMounted) {
                 setIsVerified(true);
@@ -84,13 +79,11 @@ export default function AccountPage() {
           }
         }
       } catch (error) {
-        console.error('Error reading bank info from localStorage:', error);
+        // Xử lý lỗi đọc từ localStorage một cách im lặng
       }
       
       // Nếu không có dữ liệu từ localStorage hoặc không có trạng thái xác minh, kiểm tra từ server
       if (user.bank) {
-        console.log('User bank data from server:', user.bank);
-        
         // Cập nhật form với dữ liệu từ user.bank
         if (isMounted) {
           setBankForm({
@@ -103,11 +96,9 @@ export default function AccountPage() {
         
         // Kiểm tra trạng thái xác minh từ user.bank (sử dụng type assertion)
         const bankInfo = user.bank as any;
-        console.log('Bank info with type assertion:', bankInfo);
         
         // Kiểm tra các trường hợp có thể xảy ra
         if (bankInfo.verified === true || bankInfo.pendingVerification === true) {
-          console.log('Setting verified status from server data to TRUE');
           isVerifiedStatus = true;
           if (isMounted) {
             setIsVerified(true);
@@ -117,7 +108,6 @@ export default function AccountPage() {
       }
       
       // Nếu không có trạng thái xác minh từ cả localStorage và server, đặt isVerified = false
-      console.log('Setting verified status to FALSE');
       if (isMounted) {
         setIsVerified(false);
       }
@@ -201,17 +191,37 @@ export default function AccountPage() {
       formData.append('frontDocument', frontIdFile);
       formData.append('backDocument', backIdFile);
       
-      const res = await fetch('/api/upload-verification', {
+      // Lấy token trực tiếp từ localStorage để đảm bảo có token mới nhất
+      const currentToken = localStorage.getItem('token') || localStorage.getItem('authToken') || token;
+      
+      // Tạo URL đầy đủ cho API endpoint
+      const apiUrl = window.location.origin + '/api/upload-verification';
+      
+      const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': token ? `Bearer ${token}` : ''
+          'Authorization': currentToken ? `Bearer ${currentToken}` : ''
         },
+        credentials: 'include', // Đảm bảo gửi cookie
         body: formData
       });
       
+      console.log('API response status:', res.status);
+      
+      // Xử lý response
+      if (!res.ok) {
+        const errorText = await res.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.message || `Lỗi API: ${res.status} ${res.statusText}`);
+        } catch (e) {
+          throw new Error(`Lỗi API: ${res.status} ${res.statusText}. ${errorText.substring(0, 100)}...`);
+        }
+      }
+      
       const data = await res.json();
       
-      if (res.ok && data.success) {
+      if (data.success) {
         // Cập nhật UI sau khi upload thành công
         setFrontIdFile(null); // Reset file input
         setBackIdFile(null); // Reset file input
@@ -232,7 +242,6 @@ export default function AccountPage() {
         throw new Error(data.message || 'Có lỗi xảy ra khi tải lên');
       }
     } catch (error: any) {
-      console.error('Upload error:', error);
       toast({ 
         variant: 'destructive', 
         title: 'Lỗi', 
@@ -330,22 +339,42 @@ export default function AccountPage() {
     try {
       setIsUpdatingPassword(true);
       setPasswordError('');
+      
+      // Lấy token mới nhất từ localStorage
+      const currentToken = localStorage.getItem('token') || localStorage.getItem('authToken') || token;
+      
+      // Tạo URL đầy đủ cho API endpoint
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+      const apiUrl = `${baseUrl}/api/auth/change-password`;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/change-password`, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
+          'Authorization': currentToken ? `Bearer ${currentToken}` : ''
         },
+        credentials: 'include', // Đảm bảo gửi cookie
         body: JSON.stringify({
           currentPassword: passwordForm.currentPassword,
           newPassword: passwordForm.newPassword
         })
       });
-
-      const data = await response.json();
-
+      
+      // Xử lý response không thành công
       if (!response.ok) {
+        const errorText = await response.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.message || `Lỗi API: ${response.status} ${response.statusText}`);
+        } catch (e) {
+          throw new Error(`Lỗi API: ${response.status} ${response.statusText}. ${errorText.substring(0, 100)}...`);
+        }
+      }
+      
+      // Parse JSON response
+      const data = await response.json();
+      
+      if (!data.success) {
         throw new Error(data.message || 'Đổi mật khẩu thất bại');
       }
 
@@ -639,42 +668,71 @@ return (
             {isVerified ? (
               <div className="space-y-4" key="verified-bank-info-display">
                 {/* Thông báo xác minh */}
-                <div className="mb-4">
-                  <div className="bg-green-100 border-l-4 border-green-500 text-green-800 p-4 rounded">
+                <div className="mb-5">
+                  <div className={`${(user?.bank as BankInfo)?.verified 
+                    ? "bg-green-900 border border-green-700 text-green-300" 
+                    : "bg-blue-900 border border-blue-700 text-blue-300"} p-4 rounded-lg shadow-md`}>
                     <div className="flex items-center">
-                      <CheckCircle className="h-5 w-5 mr-2" />
-                      <p>{(user?.bank as BankInfo)?.verified 
-                        ? 'Thông tin ngân hàng đã được xác minh và không thể chỉnh sửa.'
-                        : 'Thông tin ngân hàng đã được gửi và đang chờ xác minh. Không thể chỉnh sửa trong thời gian này.'}</p>
+                      {(user?.bank as BankInfo)?.verified ? (
+                        <CheckCircle className="h-6 w-6 mr-3 text-green-400" />
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 mr-3 text-blue-400">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        </svg>
+                      )}
+                      <div>
+                        <h4 className="font-medium text-lg mb-1">
+                          {(user?.bank as BankInfo)?.verified ? 'Xác minh thành công' : 'Đang chờ xác minh'}
+                        </h4>
+                        <p className="text-sm">
+                          {(user?.bank as BankInfo)?.verified 
+                            ? 'Thông tin ngân hàng đã được xác minh và không thể chỉnh sửa.'
+                            : 'Thông tin ngân hàng đã được gửi và đang chờ xác minh. Không thể chỉnh sửa trong thời gian này.'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
                 
                 {/* Hiển thị thông tin ngân hàng dạng readonly */}
-                <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-gray-400 mb-1 text-sm">Họ tên chủ tài khoản</label>
-                      <div className="font-medium text-white">{bankForm.fullName}</div>
+                <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 shadow-md">
+                  <div className="grid grid-cols-1 gap-5">
+                    <div className="border-b border-gray-700 pb-4">
+                      <label className="block text-gray-400 mb-2 text-sm font-medium">Họ tên chủ tài khoản</label>
+                      <div className="font-semibold text-white text-lg">{bankForm.fullName}</div>
                     </div>
-                    <div>
-                      <label className="block text-gray-400 mb-1 text-sm">Loại tài khoản</label>
-                      <div className="font-medium text-white">{bankForm.bankType}</div>
+                    
+                    <div className="border-b border-gray-700 pb-4">
+                      <label className="block text-gray-400 mb-2 text-sm font-medium">Loại tài khoản</label>
+                      <div className="font-semibold text-white text-lg">{bankForm.bankType}</div>
                     </div>
-                    <div>
-                      <label className="block text-gray-400 mb-1 text-sm">Ngân hàng</label>
-                      <div className="font-medium text-white">{bankForm.bankName}</div>
+                    
+                    <div className="border-b border-gray-700 pb-4">
+                      <label className="block text-gray-400 mb-2 text-sm font-medium">Ngân hàng</label>
+                      <div className="font-semibold text-white text-lg">{bankForm.bankName}</div>
                     </div>
+                    
                     <div>
-                      <label className="block text-gray-400 mb-1 text-sm">Số tài khoản</label>
-                      <div className="font-medium text-white">{bankForm.accountNumber}</div>
+                      <label className="block text-gray-400 mb-2 text-sm font-medium">Số tài khoản</label>
+                      <div className="font-semibold text-white text-lg">{bankForm.accountNumber}</div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="mt-2 text-sm text-gray-400">
-                  <p>Thông tin này đã được lưu vào hệ thống và sẽ được sử dụng cho các giao dịch rút tiền.</p>
-                  <p>Nếu cần thay đổi, vui lòng liên hệ với quản trị viên.</p>
+                <div className="mt-4 text-sm text-gray-400 bg-gray-900 p-4 rounded-lg border border-gray-800">
+                  <div className="flex items-start">
+                    <div className="mr-3 mt-1 text-blue-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="mb-2">Thông tin này đã được lưu vào hệ thống và sẽ được sử dụng cho các giao dịch rút tiền.</p>
+                      <p>Nếu cần thay đổi, vui lòng liên hệ với quản trị viên.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
