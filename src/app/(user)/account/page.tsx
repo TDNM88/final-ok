@@ -191,7 +191,7 @@ export default function AccountPage() {
       const currentToken = localStorage.getItem('token') || localStorage.getItem('authToken') || token;
       
       // Tạo URL đầy đủ cho API endpoint
-      const apiUrl = window.location.origin + '/api/upload-verification';
+      const apiUrl = window.location.origin + '/api/upload';
       
       // Upload mặt trước trước
       const frontFormData = new FormData();
