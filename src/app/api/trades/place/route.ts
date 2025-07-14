@@ -7,15 +7,20 @@ export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ message: 'Bạn cần đăng nhập' }, { status: 401 });
     }
 
     const token = authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader;
-    const user = await verifyToken(token);
     
-    if (!user?.id) {
-      return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
+    // Sử dụng hàm verifyToken từ lib/auth để xác thực token
+    const { userId, isValid } = await verifyToken(token);
+    
+    if (!isValid || !userId) {
+      console.error('Token không hợp lệ hoặc không thể xác định user ID');
+      return NextResponse.json({ message: 'Token không hợp lệ hoặc hết hạn' }, { status: 401 });
     }
+    
+    console.log('Giao dịch: Xác thực thành công với userId:', userId);
 
     const { sessionId, direction, amount, asset } = await req.json();
     
@@ -26,14 +31,14 @@ export async function POST(req: Request) {
     const db = await getMongoDb();
     
     // Kiểm tra số dư tài khoản
-    const userData = await db.collection('users').findOne({ _id: new ObjectId(user.id) });
+    const userData = await db.collection('users').findOne({ _id: new ObjectId(userId) });
     if (!userData || userData.balance.available < amount) {
-      return NextResponse.json({ message: 'Insufficient balance' }, { status: 400 });
+      return NextResponse.json({ message: 'Số dư không đủ' }, { status: 400 });
     }
 
     // Tạo giao dịch mới
     const trade = {
-      userId: new ObjectId(user.id),
+      userId: new ObjectId(userId),
       sessionId,
       direction,
       amount: Number(amount),
@@ -51,7 +56,7 @@ export async function POST(req: Request) {
       await session.withTransaction(async () => {
         // Trừ tiền từ tài khoản
         await db.collection('users').updateOne(
-          { _id: new ObjectId(user.id) },
+          { _id: new ObjectId(userId) },
           { 
             $inc: { 
               'balance.available': -amount,
@@ -73,7 +78,7 @@ export async function POST(req: Request) {
       trade: {
         ...trade,
         _id: new ObjectId(),
-        userId: user.id
+        userId: userId
       }
     });
 
