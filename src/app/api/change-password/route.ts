@@ -81,10 +81,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Bạn cần đăng nhập' }, { status: 401 });
     }
 
-    const tokenData = await verifyToken(token);
-    if (!tokenData?.isValid) {
-      return NextResponse.json({ success: false, message: 'Phiên đăng nhập hết hạn' }, { status: 401 });
+    // Sử dụng hàm verifyToken từ lib/auth để xác thực token
+    const { userId, isValid } = await verifyToken(token);
+    
+    if (!isValid || !userId) {
+      console.error('Token không hợp lệ hoặc không thể xác định user ID');
+      return NextResponse.json({ success: false, message: 'Phiên đăng nhập hết hạn hoặc không hợp lệ' }, { status: 401 });
     }
+    
+    console.log('Đổi mật khẩu: Xác thực thành công với userId:', userId);
 
     const { currentPassword, newPassword, confirmPassword } = await req.json();
 
@@ -126,7 +131,7 @@ export async function POST(req: NextRequest) {
 
     // Lấy thông tin người dùng với mật khẩu đã hash
     const userData = await db.collection('users').findOne({
-      _id: new ObjectId(tokenData.userId)
+      _id: new ObjectId(userId)
     });
 
     if (!userData) {
@@ -159,7 +164,7 @@ export async function POST(req: NextRequest) {
 
     // Cập nhật mật khẩu trong database
     const result = await db.collection('users').updateOne(
-      { _id: new ObjectId(tokenData.userId) },
+      { _id: new ObjectId(userId) },
       {
         $set: {
           password: hashedPassword,
@@ -178,7 +183,7 @@ export async function POST(req: NextRequest) {
 
     // Ghi log hoạt động đổi mật khẩu
     await db.collection('user_activities').insertOne({
-      userId: tokenData.userId,
+      userId: userId,
       action: 'change_password',
       timestamp: new Date(),
       ip: ip,
