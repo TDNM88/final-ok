@@ -172,7 +172,7 @@ export default function AccountPage() {
     }
   };
 
-  // Handle file upload cho cả hai mặt CCCD/CMND cùng lúc
+  // Handle file upload cho cả hai mặt CCCD/CMND riêng biệt
   const handleUploadBothSides = async () => {
     // Kiểm tra cả hai file đã được chọn
     if (!frontIdFile || !backIdFile) {
@@ -187,59 +187,87 @@ export default function AccountPage() {
     setIsUploading(true);
     
     try {
-      const formData = new FormData();
-      formData.append('frontDocument', frontIdFile);
-      formData.append('backDocument', backIdFile);
-      
       // Lấy token trực tiếp từ localStorage để đảm bảo có token mới nhất
       const currentToken = localStorage.getItem('token') || localStorage.getItem('authToken') || token;
       
       // Tạo URL đầy đủ cho API endpoint
       const apiUrl = window.location.origin + '/api/upload-verification';
       
-      const res = await fetch(apiUrl, {
+      // Upload mặt trước trước
+      const frontFormData = new FormData();
+      frontFormData.append('document', frontIdFile);
+      frontFormData.append('type', 'front');
+      
+      const frontRes = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': currentToken ? `Bearer ${currentToken}` : ''
         },
-        credentials: 'include', // Đảm bảo gửi cookie
-        body: formData
+        credentials: 'include',
+        body: frontFormData
       });
       
-      console.log('API response status:', res.status);
-      
-      // Xử lý response
-      if (!res.ok) {
-        const errorText = await res.text();
+      // Kiểm tra kết quả upload mặt trước
+      if (!frontRes.ok) {
+        const errorText = await frontRes.text();
         try {
           const errorData = JSON.parse(errorText);
-          throw new Error(errorData.message || `Lỗi API: ${res.status} ${res.statusText}`);
+          throw new Error(errorData.message || `Lỗi API (mặt trước): ${frontRes.status} ${frontRes.statusText}`);
         } catch (e) {
-          throw new Error(`Lỗi API: ${res.status} ${res.statusText}. ${errorText.substring(0, 100)}...`);
+          throw new Error(`Lỗi API (mặt trước): ${frontRes.status} ${frontRes.statusText}. ${errorText.substring(0, 100)}...`);
         }
       }
       
-      const data = await res.json();
+      // Upload mặt sau
+      const backFormData = new FormData();
+      backFormData.append('document', backIdFile);
+      backFormData.append('type', 'back');
       
-      if (data.success) {
+      const backRes = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': currentToken ? `Bearer ${currentToken}` : ''
+        },
+        credentials: 'include',
+        body: backFormData
+      });
+      
+      // Kiểm tra kết quả upload mặt sau
+      if (!backRes.ok) {
+        const errorText = await backRes.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.message || `Lỗi API (mặt sau): ${backRes.status} ${backRes.statusText}`);
+        } catch (e) {
+          throw new Error(`Lỗi API (mặt sau): ${backRes.status} ${backRes.statusText}. ${errorText.substring(0, 100)}...`);
+        }
+      }
+      
+      // Lấy kết quả từ mặt sau (hoặc có thể lấy từ mặt trước)
+      const backData = await backRes.json();
+      
+      if (backData.success) {
         // Cập nhật UI sau khi upload thành công
         setFrontIdFile(null); // Reset file input
         setBackIdFile(null); // Reset file input
         
+        // Reset các input file
         const frontInput = document.getElementById('frontId') as HTMLInputElement;
         const backInput = document.getElementById('backId') as HTMLInputElement;
         if (frontInput) frontInput.value = '';
         if (backInput) backInput.value = '';
         
+        // Refresh thông tin người dùng để cập nhật trạng thái xác minh
+        if (refreshUser) {
+          await refreshUser();
+        }
+        
         toast({ 
           title: 'Thành công', 
-          description: data.message || 'Xác minh danh tính đã được gửi đi thành công' 
+          description: 'Tải lên CCCD/CMND thành công. Chúng tôi sẽ xác minh thông tin của bạn trong thời gian sớm nhất.'
         });
-        
-        // Cập nhật trạng thái xác minh
-        refreshUser();
       } else {
-        throw new Error(data.message || 'Có lỗi xảy ra khi tải lên');
+        throw new Error(backData.message || 'Có lỗi xảy ra khi tải lên');
       }
     } catch (error: any) {
       toast({ 
@@ -345,7 +373,7 @@ export default function AccountPage() {
       
       // Tạo URL đầy đủ cho API endpoint
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
-      const apiUrl = `${baseUrl}/api/auth/change-password`;
+      const apiUrl = `${baseUrl}/api/change-password`;
 
       const response = await fetch(apiUrl, {
         method: 'POST',
